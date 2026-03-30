@@ -241,13 +241,13 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
       setMessage({ type: "error", text: error.message });
     } else {
       setMode("verify");
-      setMessage({ type: "success", text: "A 6-digit code has been sent to your email." });
+      setMessage({ type: "success", text: "An 8-digit code has been sent to your email." });
     }
   };
 
   const handleVerifyCode = async () => {
-    if (!otpCode.trim() || otpCode.trim().length < 6) {
-      setMessage({ type: "error", text: "Please enter the 6-digit code." });
+    if (!otpCode.trim() || otpCode.trim().length < 8) {
+      setMessage({ type: "error", text: "Please enter the 8-digit code." });
       return;
     }
     setLoading(true);
@@ -359,7 +359,7 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
         {mode === "signin" && (
           <>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 14, lineHeight: 1.5 }}>
-              Enter the email you registered with. We'll send a 6-digit code to verify your identity.
+              Enter the email you registered with. We'll send an 8-digit verification code.
             </div>
             <input
               ref={inputRef}
@@ -386,26 +386,39 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
         {mode === "verify" && (
           <>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 14, lineHeight: 1.5 }}>
-              Enter the 6-digit code sent to <span style={{ color: "#fff" }}>{email}</span>
+              Enter the 8-digit code sent to <span style={{ color: "#fff" }}>{email}</span>
             </div>
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={otpCode}
-              onChange={e => setOtpCode(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={e => e.key === "Enter" && handleVerifyCode()}
-              placeholder="000000"
-              style={{
-                ...inputStyle,
-                textAlign: "center",
-                fontSize: 24,
-                fontWeight: 700,
-                letterSpacing: "0.3em",
-                fontFamily: "monospace",
+            <div
+              onClick={() => {
+                if (otpCode.length > 0) {
+                  navigator.clipboard.writeText(otpCode).then(() => {
+                    setMessage({ type: "info", text: "Code copied to clipboard." });
+                    setTimeout(() => setMessage(null), 1500);
+                  }).catch(() => { });
+                }
               }}
-            />
+              style={{ position: "relative", cursor: otpCode.length > 0 ? "pointer" : "default" }}
+              title={otpCode.length > 0 ? "Click to copy code" : ""}
+            >
+              <input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                maxLength={8}
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                onKeyDown={e => e.key === "Enter" && handleVerifyCode()}
+                placeholder="00000000"
+                style={{
+                  ...inputStyle,
+                  textAlign: "center",
+                  fontSize: 24,
+                  fontWeight: 700,
+                  letterSpacing: "0.3em",
+                  fontFamily: "monospace",
+                }}
+              />
+            </div>
             <button onClick={handleVerifyCode} disabled={loading} style={{
               width: "100%", padding: "10px 0", marginTop: 4,
               background: loading ? "#555" : "#39FF14", color: "#000",
