@@ -187,12 +187,13 @@ const FALLBACK_TICKETS = [
 
 // ─── ACCESS MODAL (Request Access + Sign In) ──────────────────
 const AccessModal = ({ onClose, onAuthSuccess }) => {
-  const [mode, setMode] = useState("request"); // "request" or "signin"
+  const [mode, setMode] = useState("request"); // "request", "signin", "verify"
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [firm, setFirm] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null); // { type: 'success'|'error'|'info', text }
+  const [message, setMessage] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, [mode]);
@@ -225,7 +226,7 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
     }
   };
 
-  const handleSignIn = async () => {
+  const handleSendCode = async () => {
     if (!email.trim()) {
       setMessage({ type: "error", text: "Please enter your email." });
       return;
@@ -234,14 +235,34 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
     setMessage(null);
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
     });
     setLoading(false);
     if (error) {
       setMessage({ type: "error", text: error.message });
     } else {
-      setMessage({ type: "success", text: "Check your inbox. Click the magic link to sign in." });
+      setMode("verify");
+      setMessage({ type: "success", text: "A 6-digit code has been sent to your email." });
     }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!otpCode.trim() || otpCode.trim().length < 6) {
+      setMessage({ type: "error", text: "Please enter the 6-digit code." });
+      return;
+    }
+    setLoading(true);
+    setMessage(null);
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: otpCode.trim(),
+      type: "email",
+    });
+    setLoading(false);
+    if (error) {
+      setMessage({ type: "error", text: "Invalid or expired code. Please try again." });
+      setOtpCode("");
+    }
+    // Auth state change listener in parent handles the rest
   };
 
   const msgColors = { success: "#39FF14", error: "#FF4444", info: "#FFA500" };
@@ -286,10 +307,10 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
             { key: "request", label: "Request access" },
             { key: "signin", label: "Sign in" },
           ].map(t => (
-            <button key={t.key} onClick={() => { setMode(t.key); setMessage(null); }} style={{
+            <button key={t.key} onClick={() => { setMode(t.key); setMessage(null); setOtpCode(""); }} style={{
               flex: 1, padding: "7px 0", borderRadius: 6,
-              background: mode === t.key ? "#2C2C2C" : "transparent",
-              color: mode === t.key ? "#fff" : "rgba(255,255,255,0.35)",
+              background: (mode === t.key || (mode === "verify" && t.key === "signin")) ? "#2C2C2C" : "transparent",
+              color: (mode === t.key || (mode === "verify" && t.key === "signin")) ? "#fff" : "rgba(255,255,255,0.35)",
               border: "none", fontSize: 12, fontWeight: 600,
               cursor: "pointer", transition: "all 0.15s ease",
             }}>{t.label}</button>
@@ -338,18 +359,18 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
         {mode === "signin" && (
           <>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 14, lineHeight: 1.5 }}>
-              Enter the email you registered with. We'll send a magic link to sign you in.
+              Enter the email you registered with. We'll send a 6-digit code to verify your identity.
             </div>
             <input
               ref={inputRef}
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleSignIn()}
+              onKeyDown={e => e.key === "Enter" && handleSendCode()}
               placeholder="Email address"
               style={inputStyle}
             />
-            <button onClick={handleSignIn} disabled={loading} style={{
+            <button onClick={handleSendCode} disabled={loading} style={{
               width: "100%", padding: "10px 0", marginTop: 4,
               background: loading ? "#555" : "#39FF14", color: "#000",
               border: "none", borderRadius: 8,
@@ -357,7 +378,50 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
               cursor: loading ? "default" : "pointer", textTransform: "uppercase",
               opacity: loading ? 0.6 : 1,
             }}>
-              {loading ? "SENDING..." : "SEND MAGIC LINK"}
+              {loading ? "SENDING..." : "SEND CODE"}
+            </button>
+          </>
+        )}
+
+        {mode === "verify" && (
+          <>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 14, lineHeight: 1.5 }}>
+              Enter the 6-digit code sent to <span style={{ color: "#fff" }}>{email}</span>
+            </div>
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otpCode}
+              onChange={e => setOtpCode(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={e => e.key === "Enter" && handleVerifyCode()}
+              placeholder="000000"
+              style={{
+                ...inputStyle,
+                textAlign: "center",
+                fontSize: 24,
+                fontWeight: 700,
+                letterSpacing: "0.3em",
+                fontFamily: "monospace",
+              }}
+            />
+            <button onClick={handleVerifyCode} disabled={loading} style={{
+              width: "100%", padding: "10px 0", marginTop: 4,
+              background: loading ? "#555" : "#39FF14", color: "#000",
+              border: "none", borderRadius: 8,
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
+              cursor: loading ? "default" : "pointer", textTransform: "uppercase",
+              opacity: loading ? 0.6 : 1,
+            }}>
+              {loading ? "VERIFYING..." : "VERIFY"}
+            </button>
+            <button onClick={() => { setMode("signin"); setMessage(null); setOtpCode(""); }} style={{
+              width: "100%", padding: "8px 0", marginTop: 6,
+              background: "transparent", color: "rgba(255,255,255,0.35)",
+              border: "none", fontSize: 11, cursor: "pointer",
+            }}>
+              Didn't receive it? Go back
             </button>
           </>
         )}
