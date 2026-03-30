@@ -2,6 +2,77 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 const OGA_LOGO = "https://jmbzrbteizvuqwukojzu.supabase.co/storage/v1/object/public/oga-files/oga_logo.png";
 
+// ─── SUPABASE CONFIG ────────────────────────────────────────────
+const SUPABASE_URL = "https://jmbzrbteizvuqwukojzu.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptYnpyYnRlaXp2dXF3dWtvanp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNzgwOTIsImV4cCI6MjA4Njg1NDA5Mn0.Gqu3FeNnhU0X58skdhhX4woSqpk5jVd_mJ2ELxT5bGg";
+
+async function supabaseRpc(fnName, params = {}) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) throw new Error(`RPC ${fnName}: ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.warn(`Supabase RPC failed: ${fnName}`, e);
+    return null;
+  }
+}
+
+// ─── PHASE DISPLAY CONFIG (metadata not stored in DB) ───────────
+const PHASE_CONFIG = {
+  foundation: { phase: "01", title: "FOUNDATION", subtitle: "Core Platform & Identity", period: "FEB 2026" },
+  social: { phase: "02", title: "SOCIAL & TRADING", subtitle: "Peer-to-Peer Economy", period: "FEB — MAR" },
+  creator: { phase: "03", title: "CREATOR TOOLS", subtitle: "Content Pipeline", period: "MAR 2026" },
+  beta: { phase: "04", title: "BETA LAUNCH", subtitle: "Hardening & Ops", period: "MAR — APR" },
+  partners: { phase: "05", title: "PARTNERS", subtitle: "Distribution & Game Studios", period: "APR — JUL" },
+  gamescom: { phase: "06", title: "GAMESCOM", subtitle: "Live Activation", period: "AUG 2026" },
+};
+const PHASE_ORDER = ["foundation", "social", "creator", "beta", "partners", "gamescom"];
+
+function buildPhasesFromDB(milestones) {
+  return PHASE_ORDER.map(id => {
+    const cfg = PHASE_CONFIG[id];
+    const phaseMilestones = milestones
+      .filter(m => m.phase === id)
+      .map(m => ({
+        text: m.title,
+        done: m.status === "complete",
+        vis: m.visibility || "public",
+        highlight: m.title.includes("Patent"),
+      }));
+    const doneCount = phaseMilestones.filter(m => m.done).length;
+    const total = phaseMilestones.length;
+    const allDone = total > 0 && doneCount === total;
+    const anyInProgress = milestones.some(m => m.phase === id && m.status === "in_progress");
+    return {
+      id,
+      ...cfg,
+      status: allDone ? "complete" : (anyInProgress || (doneCount > 0 && doneCount < total)) ? "active" : "upcoming",
+      progress: total > 0 ? Math.round((doneCount / total) * 100) : 0,
+      milestones: phaseMilestones,
+    };
+  });
+}
+
+function buildTicketsFromDB(rows) {
+  return rows.map(t => ({
+    id: `TW-${t.teamwork_ticket_id}`,
+    title: t.title,
+    status: t.status,
+    priority: t.priority || "medium",
+    votes: t.vote_count || 0,
+    date: new Date(t.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    category: t.category || "other",
+    vis: t.visibility || "public",
+  }));
+}
+
 // ─── ACCESS TIER SYSTEM ──────────────────────────────────────────
 // Passcode hash: simple hash for client-side check
 // In production, replace with a server-side check or Supabase RPC
@@ -19,8 +90,8 @@ function canSee(itemVisibility, currentTier) {
   return tierLevel >= itemLevel;
 }
 
-// ─── PHASE DATA (with visibility per milestone) ─────────────────
-const PHASES = [
+// ─── FALLBACK DATA (used when Supabase is unreachable) ──────────
+const FALLBACK_PHASES = [
   {
     id: "foundation", phase: "01", title: "FOUNDATION",
     subtitle: "Core Platform & Identity", period: "FEB 2026",
@@ -123,7 +194,7 @@ const TICKET_STATUSES = {
   published: { label: "PUBLISHED", color: "#39FF14", bg: "rgba(57,255,20,0.12)" },
 };
 
-const SAMPLE_TICKETS = [
+const FALLBACK_TICKETS = [
   { id: "TW-142", title: "Trade notification doesn't show character name", status: "published", priority: "high", votes: 4, date: "Mar 27", category: "bug", vis: "public" },
   { id: "TW-139", title: "QR scanner freezes on Android Chrome", status: "in_production", priority: "medium", votes: 2, date: "Mar 26", category: "bug", vis: "public" },
   { id: "TW-136", title: "Add counter-offer option to trade proposals", status: "in_review", priority: "medium", votes: 7, date: "Mar 25", category: "feature", vis: "public" },
@@ -611,21 +682,43 @@ export default function OGARoadmap() {
   const [expandedPhases, setExpandedPhases] = useState(new Set(["beta"]));
   const [tier, setTier] = useState("public");
   const [showPasscode, setShowPasscode] = useState(false);
+  const [phases, setPhases] = useState(FALLBACK_PHASES);
+  const [tickets, setTickets] = useState(FALLBACK_TICKETS);
+  const [dataSource, setDataSource] = useState("local"); // "local" or "live"
 
-  // Check for saved tier on mount
+  // Fetch data from Supabase based on current tier
+  const fetchLiveData = useCallback(async (visTier) => {
+    const milestones = await supabaseRpc("get_roadmap_milestones", { p_visibility: visTier });
+    if (milestones && milestones.length > 0) {
+      setPhases(buildPhasesFromDB(milestones));
+      setDataSource("live");
+      console.log(`Roadmap: loaded ${milestones.length} milestones (${visTier} tier)`);
+    }
+
+    const ticketRows = await supabaseRpc("get_public_tickets", {
+      p_visibility: visTier, p_status: null, p_limit: 50
+    });
+    if (ticketRows && ticketRows.length > 0) {
+      setTickets(buildTicketsFromDB(ticketRows));
+    }
+  }, []);
+
+  // Check for saved tier on mount + fetch live data
   useEffect(() => {
+    let initialTier = "public";
     try {
       const saved = window.localStorage.getItem("oga_roadmap_tier");
-      if (saved === "investor") setTier("investor");
+      if (saved === "investor") initialTier = "investor";
     } catch (e) { }
-    // Check URL param
     const params = new URLSearchParams(window.location.search);
     const code = params.get("access");
     if (code === INVESTOR_HASH) {
-      setTier("investor");
+      initialTier = "investor";
       try { window.localStorage.setItem("oga_roadmap_tier", "investor"); } catch (e) { }
     }
-  }, []);
+    setTier(initialTier);
+    fetchLiveData(initialTier);
+  }, [fetchLiveData]);
 
   const togglePhase = useCallback((id) => {
     setExpandedPhases(prev => {
@@ -650,12 +743,14 @@ export default function OGARoadmap() {
   const handleTierChange = (newTier) => {
     setTier(newTier);
     setShowPasscode(false);
+    fetchLiveData(newTier); // Re-fetch with new visibility
   };
 
   const handleLockClick = () => {
     if (tier === "investor") {
       setTier("public");
       try { window.localStorage.removeItem("oga_roadmap_tier"); } catch (e) { }
+      fetchLiveData("public"); // Re-fetch public only
     } else {
       setShowPasscode(true);
     }
@@ -663,8 +758,8 @@ export default function OGARoadmap() {
 
   const getVisibleMilestones = (phase) =>
     phase.milestones.filter(m => canSee(m.vis, tier));
-  const totalM = PHASES.reduce((s, p) => s + getVisibleMilestones(p).length, 0);
-  const doneM = PHASES.reduce((s, p) => s + getVisibleMilestones(p).filter(m => m.done).length, 0);
+  const totalM = phases.reduce((s, p) => s + getVisibleMilestones(p).length, 0);
+  const doneM = phases.reduce((s, p) => s + getVisibleMilestones(p).filter(m => m.done).length, 0);
 
   return (
     <div style={{
@@ -725,7 +820,7 @@ export default function OGARoadmap() {
 
       {/* TIMELINE */}
       <Timeline
-        phases={PHASES}
+        phases={phases}
         activePhaseId={activePhaseId}
         onPhaseClick={handleTimelineClick}
         tier={tier}
@@ -772,7 +867,7 @@ export default function OGARoadmap() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {PHASES.map((phase) => (
+              {phases.map((phase) => (
                 <div key={phase.id} id={`phase-${phase.id}`}>
                   <PhaseCard
                     phase={phase}
@@ -813,7 +908,7 @@ export default function OGARoadmap() {
                 Approved beta feedback — live status from our sprint pipeline
               </p>
             </div>
-            <TicketBoard tickets={SAMPLE_TICKETS} tier={tier} />
+            <TicketBoard tickets={tickets} tier={tier} />
           </div>
         )}
       </main>
@@ -849,6 +944,12 @@ export default function OGARoadmap() {
         }}>
           ONE EARTH RISING P.B.C. — THE INFRASTRUCTURE FOR THE NEXT ERA OF GAMING
         </div>
+        {dataSource === "live" && (
+          <div style={{
+            fontSize: 8, color: "rgba(57,255,20,0.25)",
+            marginTop: 6, letterSpacing: "0.06em",
+          }}>● LIVE DATA</div>
+        )}
       </footer>
     </div>
   );
