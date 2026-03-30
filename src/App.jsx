@@ -800,9 +800,8 @@ export default function OGARoadmap() {
             fontSize: 10, color: "rgba(255,255,255,0.28)",
             letterSpacing: "0.1em",
           }}>ROADMAP</span>
-          <TierBadge tier={tier} onClick={handleLockClick} />
         </div>
-        <div style={{ display: "flex", gap: 2 }}>
+        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
           {[
             { key: "roadmap", label: "MILESTONES" },
             { key: "community", label: "COMMUNITY" },
@@ -815,6 +814,30 @@ export default function OGARoadmap() {
               cursor: "pointer",
             }}>{tab.label}</button>
           ))}
+          <button
+            onClick={handleLockClick}
+            title={tier === "investor" ? "Switch to public view" : "Investor access"}
+            style={{
+              background: tier === "investor" ? "rgba(255,165,0,0.1)" : "transparent",
+              border: tier === "investor" ? "1px solid rgba(255,165,0,0.25)" : "1px solid transparent",
+              color: tier === "investor" ? "#FFA500" : "rgba(255,255,255,0.2)",
+              padding: "5px 10px", borderRadius: 6,
+              cursor: "pointer",
+              marginLeft: 4, transition: "all 0.2s ease",
+              display: "flex", alignItems: "center", gap: 5,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="8" width="10" height="7" rx="1.5" />
+              {tier === "investor"
+                ? <path d="M5 8V5a3 3 0 0 1 6 0" />
+                : <path d="M5 8V5a3 3 0 0 1 6 0V8" />
+              }
+            </svg>
+            {tier === "investor" && (
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em" }}>INVESTOR</span>
+            )}
+          </button>
         </div>
       </header>
 
@@ -919,24 +942,10 @@ export default function OGARoadmap() {
         padding: "24px", textAlign: "center",
       }}>
         <div style={{
-          display: "flex", justifyContent: "center", alignItems: "center", gap: 12,
+          display: "flex", justifyContent: "center", alignItems: "center",
           marginBottom: 8,
         }}>
           <img src={OGA_LOGO} alt="OGA" style={{ height: 22, opacity: 0.15 }} />
-
-          {/* Lock icon — investor access trigger */}
-          <button
-            onClick={handleLockClick}
-            title={tier === "public" ? "Investor access" : "Lock view"}
-            style={{
-              background: "none", border: "none",
-              color: tier === "investor" ? "#FFA500" : "rgba(255,255,255,0.08)",
-              fontSize: 14, cursor: "pointer", padding: "2px 6px",
-              borderRadius: 4, transition: "color 0.2s ease",
-            }}
-          >
-            {tier === "investor" ? "◉" : "◎"}
-          </button>
         </div>
         <div style={{
           fontSize: 9, color: "rgba(255,255,255,0.08)",
