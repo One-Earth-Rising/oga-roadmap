@@ -39,17 +39,29 @@ function buildPhasesFromDB(milestones) {
   });
 }
 
+function cleanTicketTitle(raw) {
+  return (raw || "Untitled")
+    .replace(/^\[User App\]\s*/i, "")
+    .replace(/^\[Creator Portal\]\s*/i, "")
+    .replace(/^(BUG|FEATURE|UX):\s*/i, "")
+    .trim();
+}
+
 function buildTicketsFromDB(rows) {
-  return rows.map(t => ({
-    id: `TW-${t.teamwork_ticket_id}`,
-    title: t.title,
-    status: t.status,
-    priority: t.priority || "medium",
-    votes: t.vote_count || 0,
-    date: new Date(t.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    category: t.category || "other",
-    vis: t.visibility || "public",
-  }));
+  return rows
+    .filter(t => t.category !== "bug") // No bugs on roadmap
+    .map(t => ({
+      id: `TW-${t.teamwork_ticket_id}`,
+      title: cleanTicketTitle(t.title),
+      fullTitle: t.title, // Keep original for expand view
+      status: t.status,
+      priority: t.priority || "medium",
+      votes: t.vote_count || 0,
+      date: new Date(t.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      category: t.category || "other",
+      source: t.source || "user_app",
+      vis: t.visibility || "public",
+    }));
 }
 
 // ─── ACCESS TIER SYSTEM ──────────────────────────────────────────
@@ -170,19 +182,18 @@ const TICKET_STATUSES = {
 };
 
 const FALLBACK_TICKETS = [
-  { id: "TW-142", title: "Trade notification doesn't show character name", status: "published", priority: "high", votes: 4, date: "Mar 27", category: "bug", vis: "public" },
-  { id: "TW-139", title: "QR scanner freezes on Android Chrome", status: "in_production", priority: "medium", votes: 2, date: "Mar 26", category: "bug", vis: "public" },
-  { id: "TW-136", title: "Add counter-offer option to trade proposals", status: "in_review", priority: "medium", votes: 7, date: "Mar 25", category: "feature", vis: "public" },
-  { id: "TW-134", title: "Share button not working on mobile Safari", status: "published", priority: "high", votes: 3, date: "Mar 24", category: "bug", vis: "public" },
-  { id: "TW-131", title: "Native camera for QR scan on mobile", status: "backlog", priority: "low", votes: 5, date: "Mar 23", category: "feature", vis: "public" },
-  { id: "TW-128", title: "Settings changes don't persist after refresh", status: "published", priority: "high", votes: 1, date: "Mar 22", category: "bug", vis: "public" },
-  { id: "TW-125", title: "Dark mode toggle in settings", status: "backlog", priority: "low", votes: 8, date: "Mar 21", category: "feature", vis: "public" },
-  { id: "TW-122", title: "Lend flow timeout error after 30 seconds", status: "in_review", priority: "high", votes: 3, date: "Mar 20", category: "bug", vis: "public" },
-  // Investor-only tickets
-  { id: "TW-145", title: "Xsolla Backpack OAuth handshake failing on redirect", status: "in_review", priority: "high", votes: 0, date: "Mar 28", category: "bug", vis: "investor" },
-  // Internal-only tickets
-  { id: "TW-148", title: "Ed demo environment: hide blockchain references", status: "in_production", priority: "high", votes: 0, date: "Mar 29", category: "feature", vis: "internal" },
-  { id: "TW-147", title: "Seed Valiant characters for Royalty Machine test", status: "backlog", priority: "medium", votes: 0, date: "Mar 29", category: "feature", vis: "internal" },
+  // User App features
+  { id: "TW-136", title: "Add counter-offer option to trade proposals", status: "in_review", priority: "medium", votes: 7, date: "Mar 25", category: "feature", source: "user_app", vis: "public" },
+  { id: "TW-131", title: "Native camera for QR scan on mobile", status: "backlog", priority: "low", votes: 5, date: "Mar 23", category: "feature", source: "user_app", vis: "public" },
+  { id: "TW-125", title: "Dark mode toggle in settings", status: "backlog", priority: "low", votes: 8, date: "Mar 21", category: "feature", source: "user_app", vis: "public" },
+  { id: "TW-120", title: "Character comparison view side-by-side", status: "in_review", priority: "medium", votes: 4, date: "Mar 19", category: "ux", source: "user_app", vis: "public" },
+  // Creator Portal features
+  { id: "TW-133", title: "Reorder portal pass sections with drag-and-drop", status: "backlog", priority: "medium", votes: 3, date: "Mar 24", category: "feature", source: "creator_portal", vis: "public" },
+  { id: "TW-129", title: "Bulk character import from CSV", status: "in_production", priority: "high", votes: 6, date: "Mar 22", category: "feature", source: "creator_portal", vis: "public" },
+  { id: "TW-126", title: "Preview portal pass as end user", status: "in_review", priority: "medium", votes: 4, date: "Mar 21", category: "ux", source: "creator_portal", vis: "public" },
+  // Internal
+  { id: "TW-148", title: "Ed demo environment: hide blockchain references", status: "in_production", priority: "high", votes: 0, date: "Mar 29", category: "feature", source: "creator_portal", vis: "internal" },
+  { id: "TW-147", title: "Seed Valiant characters for Royalty Machine test", status: "backlog", priority: "medium", votes: 0, date: "Mar 29", category: "feature", source: "user_app", vis: "internal" },
 ];
 
 // ─── ACCESS MODAL (Request Access + Sign In) ──────────────────
@@ -388,37 +399,24 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 14, lineHeight: 1.5 }}>
               Enter the 8-digit code sent to <span style={{ color: "#fff" }}>{email}</span>
             </div>
-            <div
-              onClick={() => {
-                if (otpCode.length > 0) {
-                  navigator.clipboard.writeText(otpCode).then(() => {
-                    setMessage({ type: "info", text: "Code copied to clipboard." });
-                    setTimeout(() => setMessage(null), 1500);
-                  }).catch(() => { });
-                }
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="numeric"
+              maxLength={8}
+              value={otpCode}
+              onChange={e => setOtpCode(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={e => e.key === "Enter" && handleVerifyCode()}
+              placeholder="00000000"
+              style={{
+                ...inputStyle,
+                textAlign: "center",
+                fontSize: 24,
+                fontWeight: 700,
+                letterSpacing: "0.3em",
+                fontFamily: "monospace",
               }}
-              style={{ position: "relative", cursor: otpCode.length > 0 ? "pointer" : "default" }}
-              title={otpCode.length > 0 ? "Click to copy code" : ""}
-            >
-              <input
-                ref={inputRef}
-                type="text"
-                inputMode="numeric"
-                maxLength={8}
-                value={otpCode}
-                onChange={e => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                onKeyDown={e => e.key === "Enter" && handleVerifyCode()}
-                placeholder="00000000"
-                style={{
-                  ...inputStyle,
-                  textAlign: "center",
-                  fontSize: 24,
-                  fontWeight: 700,
-                  letterSpacing: "0.3em",
-                  fontFamily: "monospace",
-                }}
-              />
-            </div>
+            />
             <button onClick={handleVerifyCode} disabled={loading} style={{
               width: "100%", padding: "10px 0", marginTop: 4,
               background: loading ? "#555" : "#39FF14", color: "#000",
@@ -718,9 +716,10 @@ const PhaseCard = ({ phase, isExpanded, onToggle, tier }) => {
 // ─── TICKET BOARD ───────────────────────────────────────────────
 const TicketBoard = ({ tickets, tier }) => {
   const [filter, setFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState(null);
   const statusOrder = ["in_production", "in_review", "backlog", "published"];
 
-  const visible = tickets.filter(t => canSee(t.vis, tier));
+  const visible = tickets.filter(t => canSee(t.vis, tier) && t.category !== "bug");
   const filtered = visible
     .filter(t => filter === "all" || t.status === filter)
     .sort((a, b) => {
@@ -730,12 +729,101 @@ const TicketBoard = ({ tickets, tier }) => {
       return b.votes - a.votes;
     });
 
+  const userAppTickets = filtered.filter(t => t.source === "user_app");
+  const creatorTickets = filtered.filter(t => t.source === "creator_portal");
+
   const counts = Object.fromEntries(
     Object.keys(TICKET_STATUSES).map(s => [s, visible.filter(t => t.status === s).length])
   );
 
+  const categoryColors = {
+    feature: { bg: "rgba(68,136,255,0.1)", color: "#4488FF" },
+    ux: { bg: "rgba(139,92,246,0.1)", color: "#8B5CF6" },
+    other: { bg: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" },
+  };
+
+  const TicketRow = ({ ticket }) => {
+    const cfg = TICKET_STATUSES[ticket.status];
+    const catCfg = categoryColors[ticket.category] || categoryColors.other;
+    const isExpanded = expandedId === ticket.id;
+
+    return (
+      <div
+        onClick={() => setExpandedId(isExpanded ? null : ticket.id)}
+        style={{
+          background: "#121212", border: "1px solid #2C2C2C",
+          borderRadius: 12, padding: "12px 16px",
+          cursor: "pointer", transition: "border-color 0.2s ease",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+            background: ticket.priority === "high" ? "#FF4444"
+              : ticket.priority === "medium" ? "#FFA500" : "#4488FF",
+          }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 13, fontWeight: 600,
+              overflow: isExpanded ? "visible" : "hidden",
+              textOverflow: isExpanded ? "unset" : "ellipsis",
+              whiteSpace: isExpanded ? "normal" : "nowrap",
+              lineHeight: 1.4,
+            }}>
+              {ticket.title}
+            </div>
+            <div style={{
+              fontSize: 9, color: "rgba(255,255,255,0.22)",
+              marginTop: 3, display: "flex", gap: 7, alignItems: "center",
+            }}>
+              <code style={{ fontFamily: "monospace", fontSize: 9 }}>{ticket.id}</code>
+              <span>·</span>
+              <span>{ticket.date}</span>
+              <span>·</span>
+              <span style={{
+                background: catCfg.bg, color: catCfg.color,
+                padding: "0 5px", borderRadius: 3, fontSize: 8,
+                fontWeight: 600, textTransform: "uppercase",
+              }}>{ticket.category}</span>
+              <VisIndicator vis={ticket.vis} />
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 28 }}>
+            <span style={{ fontSize: 10, color: "rgba(57,255,20,0.45)" }}>▲</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.45)" }}>{ticket.votes}</span>
+          </div>
+          <span style={{
+            background: cfg.bg, color: cfg.color,
+            padding: "3px 8px", borderRadius: 4,
+            fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
+            whiteSpace: "nowrap", flexShrink: 0,
+          }}>{cfg.label}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const SectionHeader = ({ icon, title, count }) => (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "16px 0 8px",
+    }}>
+      <span style={{ fontSize: 12 }}>{icon}</span>
+      <span style={{
+        fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
+        color: "rgba(255,255,255,0.5)", textTransform: "uppercase",
+      }}>{title}</span>
+      <span style={{
+        background: "rgba(255,255,255,0.06)", padding: "1px 7px",
+        borderRadius: 10, fontSize: 10, fontWeight: 600,
+        color: "rgba(255,255,255,0.3)",
+      }}>{count}</span>
+    </div>
+  );
+
   return (
     <div>
+      {/* Status filter pills */}
       <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
         <button onClick={() => setFilter("all")} style={{
           background: filter === "all" ? "rgba(255,255,255,0.08)" : "transparent",
@@ -758,60 +846,33 @@ const TicketBoard = ({ tickets, tier }) => {
         })}
       </div>
 
+      {/* User App section */}
+      <SectionHeader icon="🎮" title="User App" count={userAppTickets.length} />
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {filtered.map((ticket) => {
-          const cfg = TICKET_STATUSES[ticket.status];
-          return (
-            <div key={ticket.id} style={{
-              background: "#121212", border: "1px solid #2C2C2C",
-              borderRadius: 12, padding: "12px 16px",
-              display: "flex", alignItems: "center", gap: 12,
-            }}>
-              <div style={{
-                width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
-                background: ticket.priority === "high" ? "#FF4444"
-                  : ticket.priority === "medium" ? "#FFA500" : "#4488FF",
-              }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: 13, fontWeight: 600,
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  display: "flex", alignItems: "center", gap: 6,
-                }}>
-                  {ticket.title}
-                  <VisIndicator vis={ticket.vis} />
-                </div>
-                <div style={{
-                  fontSize: 9, color: "rgba(255,255,255,0.22)",
-                  marginTop: 3, display: "flex", gap: 7, alignItems: "center",
-                }}>
-                  <code style={{ fontFamily: "monospace", fontSize: 9 }}>{ticket.id}</code>
-                  <span>·</span>
-                  <span>{ticket.date}</span>
-                  <span>·</span>
-                  <span style={{
-                    background: ticket.category === "bug" ? "rgba(255,68,68,0.1)" : "rgba(68,136,255,0.1)",
-                    color: ticket.category === "bug" ? "#FF4444" : "#4488FF",
-                    padding: "0 5px", borderRadius: 3, fontSize: 8,
-                    fontWeight: 600, textTransform: "uppercase",
-                  }}>{ticket.category}</span>
-                </div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 28 }}>
-                <span style={{ fontSize: 10, color: "rgba(57,255,20,0.45)" }}>▲</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.45)" }}>{ticket.votes}</span>
-              </div>
-              <span style={{
-                background: cfg.bg, color: cfg.color,
-                padding: "3px 8px", borderRadius: 4,
-                fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
-                whiteSpace: "nowrap", flexShrink: 0,
-              }}>{cfg.label}</span>
-            </div>
-          );
-        })}
+        {userAppTickets.length > 0 ? userAppTickets.map(t => (
+          <TicketRow key={t.id} ticket={t} />
+        )) : (
+          <div style={{
+            padding: "16px", textAlign: "center",
+            fontSize: 12, color: "rgba(255,255,255,0.2)",
+          }}>No feature requests yet</div>
+        )}
       </div>
 
+      {/* Creator Portal section */}
+      <SectionHeader icon="🛠" title="Creator Portal" count={creatorTickets.length} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {creatorTickets.length > 0 ? creatorTickets.map(t => (
+          <TicketRow key={t.id} ticket={t} />
+        )) : (
+          <div style={{
+            padding: "16px", textAlign: "center",
+            fontSize: 12, color: "rgba(255,255,255,0.2)",
+          }}>No feature requests yet</div>
+        )}
+      </div>
+
+      {/* How this works */}
       <div style={{
         marginTop: 20, padding: "14px 18px",
         background: "rgba(57,255,20,0.03)",
@@ -823,8 +884,8 @@ const TicketBoard = ({ tickets, tier }) => {
           color: "#39FF14", fontWeight: 700, fontSize: 9,
           letterSpacing: "0.08em", display: "block", marginBottom: 3,
         }}>HOW THIS WORKS</span>
-        Submit feedback from the OGA app → our team reviews and approves
-        tickets for public visibility → approved tickets appear here with
+        Submit feedback from the OGA app → our team reviews feature requests
+        for public visibility → approved requests appear here with
         live status updates as they move through production.
       </div>
     </div>
