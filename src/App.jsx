@@ -293,7 +293,7 @@ const AccessModal = ({ onClose, onAuthSuccess }) => {
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: 24,
     }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div className="rm-access-modal" onClick={e => e.stopPropagation()} style={{
         background: "#121212", border: "1px solid #2C2C2C",
         borderRadius: 16, padding: "28px 24px", maxWidth: 380, width: "100%",
         position: "relative",
@@ -494,7 +494,7 @@ const Timeline = ({ phases, activePhaseId, onPhaseClick, tier }) => {
   const pct = totalM > 0 ? Math.round((doneM / totalM) * 100) : 0;
 
   return (
-    <div style={{
+    <div className="rm-timeline" style={{
       background: "#0A0A0A",
       borderBottom: "1px solid #2C2C2C",
       padding: "18px 0 14px",
@@ -515,7 +515,7 @@ const Timeline = ({ phases, activePhaseId, onPhaseClick, tier }) => {
         }}>{pct}%</span>
       </div>
 
-      <div style={{
+      <div className="rm-timeline-bar" style={{
         margin: "0 24px 14px", height: 3,
         background: "#2C2C2C", borderRadius: 2, overflow: "hidden",
       }}>
@@ -526,8 +526,8 @@ const Timeline = ({ phases, activePhaseId, onPhaseClick, tier }) => {
         }} />
       </div>
 
-      {/* Phase nodes — extra padding to prevent cutoff */}
-      <div style={{
+      {/* Phase nodes */}
+      <div className="rm-timeline-nodes" style={{
         display: "flex", alignItems: "flex-start",
         padding: "4px 24px 0",
         gap: 0, overflowX: "auto",
@@ -544,13 +544,14 @@ const Timeline = ({ phases, activePhaseId, onPhaseClick, tier }) => {
               display: "flex", alignItems: "flex-start", flex: 1, minWidth: 0,
             }}>
               <div
+                className="rm-tl-wrap"
                 onClick={() => onPhaseClick(phase.id)}
                 style={{
                   display: "flex", flexDirection: "column", alignItems: "center",
                   cursor: "pointer", minWidth: 44, position: "relative", zIndex: 2,
                 }}
               >
-                <div style={{
+                <div className="rm-tl-circle" style={{
                   width: sz, height: sz, borderRadius: "50%",
                   border: `2px solid ${isComplete || isActive ? "#39FF14" : "#2C2C2C"}`,
                   background: isComplete ? "rgba(57,255,20,0.2)" : isActive ? "rgba(57,255,20,0.1)" : "transparent",
@@ -563,12 +564,12 @@ const Timeline = ({ phases, activePhaseId, onPhaseClick, tier }) => {
                   {isComplete ? "✓" : phase.phase}
                 </div>
                 <div style={{ marginTop: 6, textAlign: "center", lineHeight: 1.2 }}>
-                  <div style={{
+                  <div className="rm-tl-title" style={{
                     fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
                     color: isSelected ? "#fff" : isComplete || isActive ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.25)",
                     textTransform: "uppercase", whiteSpace: "nowrap",
                   }}>{phase.title}</div>
-                  <div style={{
+                  <div className="rm-tl-period" style={{
                     fontSize: 8, color: "rgba(255,255,255,0.18)", marginTop: 1, whiteSpace: "nowrap",
                   }}>{phase.period}</div>
                 </div>
@@ -601,6 +602,7 @@ const PhaseCard = ({ phase, isExpanded, onToggle, tier }) => {
 
   return (
     <div
+      className="rm-phase-card"
       onClick={onToggle}
       style={{
         background: "#121212",
@@ -619,7 +621,7 @@ const PhaseCard = ({ phase, isExpanded, onToggle, tier }) => {
       )}
 
       <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-        <div style={{
+        <div className="rm-phase-num" style={{
           fontSize: 38, fontWeight: 900, lineHeight: 1,
           color: isComplete || isActive ? "#39FF14" : "#2C2C2C",
           opacity: isComplete ? 0.25 : isActive ? 0.7 : 0.45,
@@ -630,7 +632,7 @@ const PhaseCard = ({ phase, isExpanded, onToggle, tier }) => {
           <div style={{
             display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
           }}>
-            <h3 style={{
+            <h3 className="rm-phase-title" style={{
               margin: 0, fontSize: 16, fontWeight: 800,
               letterSpacing: "0.07em", textTransform: "uppercase",
             }}>{phase.title}</h3>
@@ -676,7 +678,7 @@ const PhaseCard = ({ phase, isExpanded, onToggle, tier }) => {
             marginTop: isExpanded ? 14 : 0,
           }}>
             {visible.map((m, i) => (
-              <div key={i} style={{
+              <div key={i} className="rm-milestone-row" style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "5px 0",
                 borderBottom: i < visible.length - 1 ? "1px solid rgba(44,44,44,0.35)" : "none",
@@ -750,6 +752,7 @@ const TicketBoard = ({ tickets, tier }) => {
     return (
       <div
         onClick={() => setExpandedId(isExpanded ? null : ticket.id)}
+        className="rm-ticket-row"
         style={{
           background: "#121212", border: "1px solid #2C2C2C",
           borderRadius: 12, padding: "12px 16px",
@@ -763,7 +766,7 @@ const TicketBoard = ({ tickets, tier }) => {
               : ticket.priority === "medium" ? "#FFA500" : "#4488FF",
           }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
+            <div className="rm-ticket-title" style={{
               fontSize: 13, fontWeight: 600,
               overflow: isExpanded ? "visible" : "hidden",
               textOverflow: isExpanded ? "unset" : "ellipsis",
@@ -772,7 +775,7 @@ const TicketBoard = ({ tickets, tier }) => {
             }}>
               {ticket.title}
             </div>
-            <div style={{
+            <div className="rm-ticket-meta" style={{
               fontSize: 9, color: "rgba(255,255,255,0.22)",
               marginTop: 3, display: "flex", gap: 7, alignItems: "center",
             }}>
@@ -788,11 +791,11 @@ const TicketBoard = ({ tickets, tier }) => {
               <VisIndicator vis={ticket.vis} />
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 28 }}>
+          <div className="rm-ticket-votes" style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 28 }}>
             <span style={{ fontSize: 10, color: "rgba(57,255,20,0.45)" }}>▲</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.45)" }}>{ticket.votes}</span>
           </div>
-          <span style={{
+          <span className="rm-ticket-status" style={{
             background: cfg.bg, color: cfg.color,
             padding: "3px 8px", borderRadius: 4,
             fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
@@ -824,8 +827,8 @@ const TicketBoard = ({ tickets, tier }) => {
   return (
     <div>
       {/* Status filter pills */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-        <button onClick={() => setFilter("all")} style={{
+      <div className="rm-filter-pills" style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+        <button className="rm-filter-pill" onClick={() => setFilter("all")} style={{
           background: filter === "all" ? "rgba(255,255,255,0.08)" : "transparent",
           color: filter === "all" ? "#fff" : "rgba(255,255,255,0.35)",
           border: "1px solid rgba(255,255,255,0.06)",
@@ -835,7 +838,7 @@ const TicketBoard = ({ tickets, tier }) => {
         {statusOrder.map(s => {
           const cfg = TICKET_STATUSES[s];
           return (
-            <button key={s} onClick={() => setFilter(s)} style={{
+            <button className="rm-filter-pill" key={s} onClick={() => setFilter(s)} style={{
               background: filter === s ? cfg.bg : "transparent",
               color: filter === s ? cfg.color : "rgba(255,255,255,0.3)",
               border: `1px solid ${filter === s ? cfg.color + "33" : "rgba(255,255,255,0.05)"}`,
@@ -873,7 +876,7 @@ const TicketBoard = ({ tickets, tier }) => {
       </div>
 
       {/* How this works */}
-      <div style={{
+      <div className="rm-how-it-works" style={{
         marginTop: 20, padding: "14px 18px",
         background: "rgba(57,255,20,0.03)",
         border: "1px solid rgba(57,255,20,0.06)",
@@ -1016,6 +1019,45 @@ export default function OGARoadmap() {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #2C2C2C; border-radius: 3px; }
         input::placeholder { color: rgba(255,255,255,0.25); }
+
+        @media (max-width: 640px) {
+          .rm-header { padding: 10px 12px !important; }
+          .rm-header-logo { height: 22px !important; }
+          .rm-header-label { display: none !important; }
+          .rm-header-tabs { gap: 0 !important; }
+          .rm-header-tab { padding: 5px 8px !important; font-size: 9px !important; }
+          .rm-header-lock span { display: none !important; }
+          .rm-header-lock { padding: 5px 8px !important; margin-left: 0 !important; }
+          .rm-timeline { padding: 12px 0 10px !important; }
+          .rm-timeline-bar { margin: 0 12px 10px !important; }
+          .rm-timeline-nodes { padding: 4px 8px 0 !important; }
+          .rm-tl-circle { width: 22px !important; height: 22px !important; font-size: 8px !important; }
+          .rm-tl-title { font-size: 7px !important; }
+          .rm-tl-period { display: none !important; }
+          .rm-tl-wrap { min-width: 32px !important; }
+          .rm-main { padding: 16px 12px 48px !important; }
+          .rm-phase-card { padding: 14px !important; border-radius: 12px !important; }
+          .rm-phase-num { font-size: 28px !important; min-width: 36px !important; }
+          .rm-phase-title { font-size: 13px !important; }
+          .rm-milestone-row { font-size: 11px !important; }
+          .rm-section-title { font-size: 16px !important; }
+          .rm-filter-pills { gap: 4px !important; }
+          .rm-filter-pill { padding: 4px 8px !important; font-size: 9px !important; }
+          .rm-ticket-row { padding: 10px 12px !important; }
+          .rm-ticket-title { font-size: 12px !important; }
+          .rm-ticket-meta { font-size: 8px !important; }
+          .rm-ticket-status { font-size: 8px !important; padding: 2px 6px !important; }
+          .rm-ticket-votes { min-width: 22px !important; }
+          .rm-ticket-votes span:last-child { font-size: 11px !important; }
+          .rm-how-it-works { padding: 12px 14px !important; font-size: 11px !important; }
+          .rm-access-modal { padding: 20px 16px !important; max-width: 340px !important; }
+        }
+        @media (max-width: 380px) {
+          .rm-header-tab { padding: 4px 6px !important; font-size: 8px !important; }
+          .rm-tl-title { font-size: 6px !important; }
+          .rm-phase-num { font-size: 24px !important; min-width: 30px !important; }
+          .rm-phase-title { font-size: 12px !important; }
+        }
       `}</style>
 
       {showAccessModal && (
@@ -1026,7 +1068,7 @@ export default function OGARoadmap() {
       )}
 
       {/* HEADER */}
-      <header style={{
+      <header className="rm-header" style={{
         position: "sticky", top: 0, zIndex: 100,
         background: "rgba(0,0,0,0.92)", backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
@@ -1035,18 +1077,18 @@ export default function OGARoadmap() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <img src={OGA_LOGO} alt="OGA" style={{ height: 28 }} />
-          <span style={{
+          <img className="rm-header-logo" src={OGA_LOGO} alt="OGA" style={{ height: 28 }} />
+          <span className="rm-header-label" style={{
             fontSize: 10, color: "rgba(255,255,255,0.28)",
             letterSpacing: "0.1em",
           }}>ROADMAP</span>
         </div>
-        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <div className="rm-header-tabs" style={{ display: "flex", gap: 2, alignItems: "center" }}>
           {[
             { key: "roadmap", label: "MILESTONES" },
             { key: "community", label: "COMMUNITY" },
           ].map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+            <button className="rm-header-tab" key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
               background: activeTab === tab.key ? "rgba(57,255,20,0.1)" : "transparent",
               color: activeTab === tab.key ? "#39FF14" : "rgba(255,255,255,0.4)",
               border: "none", padding: "6px 14px", borderRadius: 6,
@@ -1055,6 +1097,7 @@ export default function OGARoadmap() {
             }}>{tab.label}</button>
           ))}
           <button
+            className="rm-header-lock"
             onClick={handleLockClick}
             title={user && tier !== "public" ? `Signed in as ${user.email} — click to sign out` : "Investor access"}
             style={{
@@ -1092,7 +1135,7 @@ export default function OGARoadmap() {
       />
 
       {/* CONTENT */}
-      <main style={{ maxWidth: 740, margin: "0 auto", padding: "24px 24px 64px" }}>
+      <main className="rm-main" style={{ maxWidth: 740, margin: "0 auto", padding: "24px 24px 64px" }}>
         {activeTab === "roadmap" && (
           <div>
             <div style={{ textAlign: "center", marginBottom: 28 }}>
@@ -1161,7 +1204,7 @@ export default function OGARoadmap() {
         {activeTab === "community" && (
           <div>
             <div style={{ marginBottom: 20 }}>
-              <h2 style={{
+              <h2 className="rm-section-title" style={{
                 fontSize: 20, fontWeight: 900, letterSpacing: "0.06em",
                 textTransform: "uppercase", margin: 0,
               }}>
