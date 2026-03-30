@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
+const OGA_LOGO = "https://jmbzrbteizvuqwukojzu.supabase.co/storage/v1/object/public/oga-files/oga_logo.png";
+
 // ─── ACCESS TIER SYSTEM ──────────────────────────────────────────
 // Passcode hash: simple hash for client-side check
 // In production, replace with a server-side check or Supabase RPC
@@ -147,7 +149,7 @@ const PasscodeModal = ({ onSuccess, onClose }) => {
 
   const handleSubmit = () => {
     if (code === INVESTOR_HASH) {
-      try { window.localStorage.setItem("oga_roadmap_tier", "investor"); } catch(e) {}
+      try { window.localStorage.setItem("oga_roadmap_tier", "investor"); } catch (e) { }
       onSuccess("investor");
     } else {
       setError(true);
@@ -615,13 +617,13 @@ export default function OGARoadmap() {
     try {
       const saved = window.localStorage.getItem("oga_roadmap_tier");
       if (saved === "investor") setTier("investor");
-    } catch(e) {}
+    } catch (e) { }
     // Check URL param
     const params = new URLSearchParams(window.location.search);
     const code = params.get("access");
     if (code === INVESTOR_HASH) {
       setTier("investor");
-      try { window.localStorage.setItem("oga_roadmap_tier", "investor"); } catch(e) {}
+      try { window.localStorage.setItem("oga_roadmap_tier", "investor"); } catch (e) { }
     }
   }, []);
 
@@ -653,7 +655,7 @@ export default function OGARoadmap() {
   const handleLockClick = () => {
     if (tier === "investor") {
       setTier("public");
-      try { window.localStorage.removeItem("oga_roadmap_tier"); } catch(e) {}
+      try { window.localStorage.removeItem("oga_roadmap_tier"); } catch (e) { }
     } else {
       setShowPasscode(true);
     }
@@ -698,7 +700,7 @@ export default function OGARoadmap() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: "0.14em" }}>OGA</span>
+          <img src={OGA_LOGO} alt="OGA" style={{ height: 28 }} />
           <span style={{
             fontSize: 10, color: "rgba(255,255,255,0.28)",
             letterSpacing: "0.1em",
@@ -825,10 +827,7 @@ export default function OGARoadmap() {
           display: "flex", justifyContent: "center", alignItems: "center", gap: 12,
           marginBottom: 8,
         }}>
-          <span style={{
-            fontSize: 18, fontWeight: 900, letterSpacing: "0.14em",
-            color: "rgba(255,255,255,0.1)",
-          }}>OGA™</span>
+          <img src={OGA_LOGO} alt="OGA" style={{ height: 22, opacity: 0.15 }} />
 
           {/* Lock icon — investor access trigger */}
           <button
