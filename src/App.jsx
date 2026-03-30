@@ -1,30 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase, rpc } from "./supabase.js";
 
 const OGA_LOGO = "https://jmbzrbteizvuqwukojzu.supabase.co/storage/v1/object/public/oga-files/oga_logo.png";
 
-// ─── SUPABASE CONFIG ────────────────────────────────────────────
-const SUPABASE_URL = "https://jmbzrbteizvuqwukojzu.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptYnpyYnRlaXp2dXF3dWtvanp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNzgwOTIsImV4cCI6MjA4Njg1NDA5Mn0.Gqu3FeNnhU0X58skdhhX4woSqpk5jVd_mJ2ELxT5bGg";
-
-async function supabaseRpc(fnName, params = {}) {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
-      method: "POST",
-      headers: {
-        "apikey": SUPABASE_ANON,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(params),
-    });
-    if (!res.ok) throw new Error(`RPC ${fnName}: ${res.status}`);
-    return await res.json();
-  } catch (e) {
-    console.warn(`Supabase RPC failed: ${fnName}`, e);
-    return null;
-  }
-}
-
-// ─── PHASE DISPLAY CONFIG (metadata not stored in DB) ───────────
+// ─── ACCESS TIER SYSTEM ──────────────────────────────────────────
 const PHASE_CONFIG = {
   foundation: { phase: "01", title: "FOUNDATION", subtitle: "Core Platform & Identity", period: "FEB 2026" },
   social: { phase: "02", title: "SOCIAL & TRADING", subtitle: "Peer-to-Peer Economy", period: "FEB — MAR" },
@@ -74,10 +53,6 @@ function buildTicketsFromDB(rows) {
 }
 
 // ─── ACCESS TIER SYSTEM ──────────────────────────────────────────
-// Passcode hash: simple hash for client-side check
-// In production, replace with a server-side check or Supabase RPC
-const INVESTOR_HASH = "oer2026inv"; // Change this to your real passcode
-
 const ACCESS_TIERS = {
   public: { level: 0, label: "PUBLIC", color: "#39FF14" },
   investor: { level: 1, label: "INVESTOR", color: "#FFA500" },
@@ -210,23 +185,73 @@ const FALLBACK_TICKETS = [
   { id: "TW-147", title: "Seed Valiant characters for Royalty Machine test", status: "backlog", priority: "medium", votes: 0, date: "Mar 29", category: "feature", vis: "internal" },
 ];
 
-// ─── PASSCODE MODAL ────────────────────────────────────────────
-const PasscodeModal = ({ onSuccess, onClose }) => {
-  const [code, setCode] = useState("");
-  const [error, setError] = useState(false);
+// ─── ACCESS MODAL (Request Access + Sign In) ──────────────────
+const AccessModal = ({ onClose, onAuthSuccess }) => {
+  const [mode, setMode] = useState("request"); // "request" or "signin"
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [firm, setFirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null); // { type: 'success'|'error'|'info', text }
   const inputRef = useRef(null);
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => { inputRef.current?.focus(); }, [mode]);
 
-  const handleSubmit = () => {
-    if (code === INVESTOR_HASH) {
-      try { window.localStorage.setItem("oga_roadmap_tier", "investor"); } catch (e) { }
-      onSuccess("investor");
-    } else {
-      setError(true);
-      setTimeout(() => setError(false), 1500);
-      setCode("");
+  const handleRequest = async () => {
+    if (!email.trim() || !fullName.trim()) {
+      setMessage({ type: "error", text: "Name and email are required." });
+      return;
     }
+    setLoading(true);
+    setMessage(null);
+    const result = await rpc("request_roadmap_access", {
+      p_email: email.trim(),
+      p_full_name: fullName.trim(),
+      p_firm: firm.trim() || null,
+    });
+    setLoading(false);
+    if (result) {
+      if (result.status === "submitted" || result.status === "already_pending") {
+        setMessage({ type: "success", text: result.message });
+      } else if (result.status === "already_approved") {
+        setMessage({ type: "info", text: result.message });
+        setMode("signin");
+        setEmail(email.trim());
+      } else {
+        setMessage({ type: "error", text: result.message });
+      }
+    } else {
+      setMessage({ type: "error", text: "Something went wrong. Please try again." });
+    }
+  };
+
+  const handleSignIn = async () => {
+    if (!email.trim()) {
+      setMessage({ type: "error", text: "Please enter your email." });
+      return;
+    }
+    setLoading(true);
+    setMessage(null);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setLoading(false);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+    } else {
+      setMessage({ type: "success", text: "Check your inbox. Click the magic link to sign in." });
+    }
+  };
+
+  const msgColors = { success: "#39FF14", error: "#FF4444", info: "#FFA500" };
+
+  const inputStyle = {
+    width: "100%", padding: "10px 14px",
+    background: "#0A0A0A", border: "1px solid #2C2C2C",
+    borderRadius: 8, color: "#fff", fontSize: 14,
+    outline: "none", boxSizing: "border-box",
+    marginBottom: 10,
   };
 
   return (
@@ -238,7 +263,7 @@ const PasscodeModal = ({ onSuccess, onClose }) => {
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
         background: "#121212", border: "1px solid #2C2C2C",
-        borderRadius: 16, padding: "32px 28px", maxWidth: 360, width: "100%",
+        borderRadius: 16, padding: "28px 24px", maxWidth: 380, width: "100%",
         position: "relative",
       }}>
         <button onClick={onClose} style={{
@@ -249,51 +274,105 @@ const PasscodeModal = ({ onSuccess, onClose }) => {
 
         <div style={{
           fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
-          color: "#FFA500", marginBottom: 6, textTransform: "uppercase",
+          color: "#FFA500", marginBottom: 12, textTransform: "uppercase",
         }}>INVESTOR ACCESS</div>
 
+        {/* Tab toggle */}
         <div style={{
-          fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 4,
-        }}>Enter your access code</div>
-
-        <div style={{
-          fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 20, lineHeight: 1.5,
+          display: "flex", gap: 2, marginBottom: 18,
+          background: "#0A0A0A", borderRadius: 8, padding: 3,
         }}>
-          This unlocks partner details, strategic milestones, and confidential roadmap items.
+          {[
+            { key: "request", label: "Request access" },
+            { key: "signin", label: "Sign in" },
+          ].map(t => (
+            <button key={t.key} onClick={() => { setMode(t.key); setMessage(null); }} style={{
+              flex: 1, padding: "7px 0", borderRadius: 6,
+              background: mode === t.key ? "#2C2C2C" : "transparent",
+              color: mode === t.key ? "#fff" : "rgba(255,255,255,0.35)",
+              border: "none", fontSize: 12, fontWeight: 600,
+              cursor: "pointer", transition: "all 0.15s ease",
+            }}>{t.label}</button>
+          ))}
         </div>
 
-        <input
-          ref={inputRef}
-          type="password"
-          value={code}
-          onChange={e => setCode(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && handleSubmit()}
-          placeholder="Access code"
-          style={{
-            width: "100%", padding: "10px 14px",
-            background: "#0A0A0A",
-            border: `1px solid ${error ? "#FF4444" : "#2C2C2C"}`,
-            borderRadius: 8, color: "#fff", fontSize: 14,
-            outline: "none", transition: "border-color 0.2s ease",
-            boxSizing: "border-box",
-          }}
-        />
-
-        {error && (
-          <div style={{
-            fontSize: 11, color: "#FF4444", marginTop: 6,
-          }}>Invalid code. Please try again.</div>
+        {mode === "request" && (
+          <>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 14, lineHeight: 1.5 }}>
+              Request access to see partner details, strategic milestones, and confidential roadmap data.
+            </div>
+            <input
+              ref={inputRef}
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              placeholder="Full name *"
+              style={inputStyle}
+            />
+            <input
+              value={firm}
+              onChange={e => setFirm(e.target.value)}
+              placeholder="Firm or company (optional)"
+              style={inputStyle}
+            />
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleRequest()}
+              placeholder="Email address *"
+              style={inputStyle}
+            />
+            <button onClick={handleRequest} disabled={loading} style={{
+              width: "100%", padding: "10px 0", marginTop: 4,
+              background: loading ? "#555" : "#FFA500", color: "#000",
+              border: "none", borderRadius: 8,
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
+              cursor: loading ? "default" : "pointer", textTransform: "uppercase",
+              opacity: loading ? 0.6 : 1,
+            }}>
+              {loading ? "SUBMITTING..." : "REQUEST ACCESS"}
+            </button>
+          </>
         )}
 
-        <button onClick={handleSubmit} style={{
-          width: "100%", marginTop: 14, padding: "10px 0",
-          background: "#FFA500", color: "#000",
-          border: "none", borderRadius: 8,
-          fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
-          cursor: "pointer", textTransform: "uppercase",
-        }}>
-          UNLOCK
-        </button>
+        {mode === "signin" && (
+          <>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 14, lineHeight: 1.5 }}>
+              Enter the email you registered with. We'll send a magic link to sign you in.
+            </div>
+            <input
+              ref={inputRef}
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSignIn()}
+              placeholder="Email address"
+              style={inputStyle}
+            />
+            <button onClick={handleSignIn} disabled={loading} style={{
+              width: "100%", padding: "10px 0", marginTop: 4,
+              background: loading ? "#555" : "#39FF14", color: "#000",
+              border: "none", borderRadius: 8,
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
+              cursor: loading ? "default" : "pointer", textTransform: "uppercase",
+              opacity: loading ? 0.6 : 1,
+            }}>
+              {loading ? "SENDING..." : "SEND MAGIC LINK"}
+            </button>
+          </>
+        )}
+
+        {message && (
+          <div style={{
+            marginTop: 12, padding: "10px 14px",
+            background: `${msgColors[message.type]}10`,
+            border: `1px solid ${msgColors[message.type]}30`,
+            borderRadius: 8, fontSize: 12,
+            color: msgColors[message.type], lineHeight: 1.5,
+          }}>
+            {message.text}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -681,21 +760,22 @@ export default function OGARoadmap() {
   const [activePhaseId, setActivePhaseId] = useState("beta");
   const [expandedPhases, setExpandedPhases] = useState(new Set(["beta"]));
   const [tier, setTier] = useState("public");
-  const [showPasscode, setShowPasscode] = useState(false);
+  const [showAccessModal, setShowAccessModal] = useState(false);
   const [phases, setPhases] = useState(FALLBACK_PHASES);
   const [tickets, setTickets] = useState(FALLBACK_TICKETS);
-  const [dataSource, setDataSource] = useState("local"); // "local" or "live"
+  const [dataSource, setDataSource] = useState("local");
+  const [user, setUser] = useState(null); // Supabase auth user
+  const [accessStatus, setAccessStatus] = useState(null); // pending, approved, denied, revoked, none
 
-  // Fetch data from Supabase based on current tier
+  // Fetch roadmap data based on tier
   const fetchLiveData = useCallback(async (visTier) => {
-    const milestones = await supabaseRpc("get_roadmap_milestones", { p_visibility: visTier });
+    const milestones = await rpc("get_roadmap_milestones", { p_visibility: visTier });
     if (milestones && milestones.length > 0) {
       setPhases(buildPhasesFromDB(milestones));
       setDataSource("live");
       console.log(`Roadmap: loaded ${milestones.length} milestones (${visTier} tier)`);
     }
-
-    const ticketRows = await supabaseRpc("get_public_tickets", {
+    const ticketRows = await rpc("get_public_tickets", {
       p_visibility: visTier, p_status: null, p_limit: 50
     });
     if (ticketRows && ticketRows.length > 0) {
@@ -703,22 +783,47 @@ export default function OGARoadmap() {
     }
   }, []);
 
-  // Check for saved tier on mount + fetch live data
-  useEffect(() => {
-    let initialTier = "public";
-    try {
-      const saved = window.localStorage.getItem("oga_roadmap_tier");
-      if (saved === "investor") initialTier = "investor";
-    } catch (e) { }
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("access");
-    if (code === INVESTOR_HASH) {
-      initialTier = "investor";
-      try { window.localStorage.setItem("oga_roadmap_tier", "investor"); } catch (e) { }
+  // Check access tier for authenticated user
+  const checkAccess = useCallback(async () => {
+    const result = await rpc("check_roadmap_access");
+    if (result) {
+      setTier(result.tier || "public");
+      setAccessStatus(result.status);
+      fetchLiveData(result.tier || "public");
+      console.log(`Roadmap access: tier=${result.tier}, status=${result.status}`);
     }
-    setTier(initialTier);
-    fetchLiveData(initialTier);
   }, [fetchLiveData]);
+
+  // Auth state listener
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        checkAccess();
+      } else {
+        fetchLiveData("public");
+      }
+    });
+
+    // Listen for auth changes (magic link callback)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log("Auth event:", event);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          checkAccess();
+          setShowAccessModal(false);
+        } else {
+          setTier("public");
+          setAccessStatus(null);
+          fetchLiveData("public");
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [checkAccess, fetchLiveData]);
 
   const togglePhase = useCallback((id) => {
     setExpandedPhases(prev => {
@@ -740,19 +845,16 @@ export default function OGARoadmap() {
     }, 100);
   }, []);
 
-  const handleTierChange = (newTier) => {
-    setTier(newTier);
-    setShowPasscode(false);
-    fetchLiveData(newTier); // Re-fetch with new visibility
-  };
-
-  const handleLockClick = () => {
-    if (tier === "investor") {
+  const handleLockClick = async () => {
+    if (user && tier !== "public") {
+      // Sign out → revert to public
+      await supabase.auth.signOut();
+      setUser(null);
       setTier("public");
-      try { window.localStorage.removeItem("oga_roadmap_tier"); } catch (e) { }
-      fetchLiveData("public"); // Re-fetch public only
+      setAccessStatus(null);
+      fetchLiveData("public");
     } else {
-      setShowPasscode(true);
+      setShowAccessModal(true);
     }
   };
 
@@ -778,10 +880,10 @@ export default function OGARoadmap() {
         input::placeholder { color: rgba(255,255,255,0.25); }
       `}</style>
 
-      {showPasscode && (
-        <PasscodeModal
-          onSuccess={handleTierChange}
-          onClose={() => setShowPasscode(false)}
+      {showAccessModal && (
+        <AccessModal
+          onClose={() => setShowAccessModal(false)}
+          onAuthSuccess={() => checkAccess()}
         />
       )}
 
@@ -816,11 +918,11 @@ export default function OGARoadmap() {
           ))}
           <button
             onClick={handleLockClick}
-            title={tier === "investor" ? "Switch to public view" : "Investor access"}
+            title={user && tier !== "public" ? `Signed in as ${user.email} — click to sign out` : "Investor access"}
             style={{
-              background: tier === "investor" ? "rgba(255,165,0,0.1)" : "transparent",
-              border: tier === "investor" ? "1px solid rgba(255,165,0,0.25)" : "1px solid transparent",
-              color: tier === "investor" ? "#FFA500" : "rgba(255,255,255,0.2)",
+              background: tier === "investor" ? "rgba(255,165,0,0.1)" : tier === "internal" ? "rgba(139,92,246,0.1)" : "transparent",
+              border: tier !== "public" ? `1px solid ${ACCESS_TIERS[tier]?.color || "#FFA500"}40` : "1px solid transparent",
+              color: tier !== "public" ? (ACCESS_TIERS[tier]?.color || "#FFA500") : "rgba(255,255,255,0.2)",
               padding: "5px 10px", borderRadius: 6,
               cursor: "pointer",
               marginLeft: 4, transition: "all 0.2s ease",
@@ -829,13 +931,15 @@ export default function OGARoadmap() {
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="8" width="10" height="7" rx="1.5" />
-              {tier === "investor"
+              {tier !== "public"
                 ? <path d="M5 8V5a3 3 0 0 1 6 0" />
                 : <path d="M5 8V5a3 3 0 0 1 6 0V8" />
               }
             </svg>
-            {tier === "investor" && (
-              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em" }}>INVESTOR</span>
+            {tier !== "public" && (
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em" }}>
+                {ACCESS_TIERS[tier]?.label || "INVESTOR"}
+              </span>
             )}
           </button>
         </div>
