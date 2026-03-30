@@ -58,7 +58,7 @@ function buildTicketsFromDB(rows) {
       priority: t.priority || "medium",
       votes: t.vote_count || 0,
       date: new Date(t.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      category: t.category || "other",
+      category: t.category === "ux" ? "ux/ui" : (t.category || "other"),
       source: t.source || "user_app",
       vis: t.visibility || "public",
     }));
@@ -741,6 +741,7 @@ const TicketBoard = ({ tickets, tier }) => {
   const categoryColors = {
     feature: { bg: "rgba(68,136,255,0.1)", color: "#4488FF" },
     ux: { bg: "rgba(139,92,246,0.1)", color: "#8B5CF6" },
+    "ux/ui": { bg: "rgba(139,92,246,0.1)", color: "#8B5CF6" },
     other: { bg: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" },
   };
 
