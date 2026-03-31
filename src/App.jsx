@@ -880,82 +880,87 @@ const TicketBoard = ({ tickets, tier, user }) => {
           }}>{cfg.label}</span>
         </div>
 
-        {/* Inline vote login */}
-        {!user && voteLoginId === ticket.id && (
-          <div className="rm-vote-login" onClick={e => e.stopPropagation()} style={{
-            marginTop: 10, padding: "10px 12px",
-            background: "#0A0A0A", border: "1px solid #2C2C2C",
-            borderRadius: 8,
-          }}>
-            {voteStep === "email" ? (
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input
-                  type="email"
-                  value={voteEmail}
-                  onChange={e => setVoteEmail(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleVoteSendCode(e)}
-                  placeholder="Your OGA email"
-                  onClick={e => e.stopPropagation()}
-                  style={{
-                    flex: 1, padding: "6px 10px",
-                    background: "#121212", border: "1px solid #2C2C2C",
-                    borderRadius: 6, color: "#fff", fontSize: 12,
-                    outline: "none",
-                  }}
-                />
-                <button
-                  onClick={handleVoteSendCode}
-                  disabled={voteLoading}
-                  style={{
-                    padding: "6px 12px", background: voteLoading ? "#555" : "#39FF14",
-                    color: "#000", border: "none", borderRadius: 6,
-                    fontSize: 10, fontWeight: 700, cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >{voteLoading ? "..." : "SEND CODE"}</button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={8}
-                  value={voteCode}
-                  onChange={e => setVoteCode(e.target.value.replace(/\D/g, ""))}
-                  onKeyDown={e => e.key === "Enter" && handleVoteVerify(e)}
-                  placeholder="8-digit code"
-                  onClick={e => e.stopPropagation()}
-                  style={{
-                    flex: 1, padding: "6px 10px",
-                    background: "#121212", border: "1px solid #2C2C2C",
-                    borderRadius: 6, color: "#fff", fontSize: 14,
-                    fontFamily: "monospace", letterSpacing: "0.15em",
-                    outline: "none", textAlign: "center",
-                  }}
-                />
-                <button
-                  onClick={handleVoteVerify}
-                  disabled={voteLoading}
-                  style={{
-                    padding: "6px 12px", background: voteLoading ? "#555" : "#39FF14",
-                    color: "#000", border: "none", borderRadius: 6,
-                    fontSize: 10, fontWeight: 700, cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >{voteLoading ? "..." : "VERIFY"}</button>
-              </div>
-            )}
-            {voteMsg && (
-              <div style={{
-                marginTop: 6, fontSize: 10,
-                color: voteMsg.includes("Check") ? "#39FF14" : "#FF4444",
-              }}>{voteMsg}</div>
-            )}
-            <div style={{
-              marginTop: 6, fontSize: 9, color: "rgba(255,255,255,0.2)",
-            }}>Sign in with your OGA account to vote</div>
+      </div>
+    );
+  };
+
+  const VoteLoginInline = ({ ticketId }) => {
+    if (user || voteLoginId !== ticketId) return null;
+    return (
+      <div className="rm-vote-login" onClick={e => e.stopPropagation()} style={{
+        marginTop: -4, marginBottom: 6, padding: "10px 12px",
+        background: "#0A0A0A", border: "1px solid #2C2C2C",
+        borderTop: "none", borderRadius: "0 0 12px 12px",
+      }}>
+        {voteStep === "email" ? (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              type="email"
+              value={voteEmail}
+              onChange={e => setVoteEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleVoteSendCode(e)}
+              placeholder="Your OGA email"
+              onClick={e => e.stopPropagation()}
+              autoFocus
+              style={{
+                flex: 1, padding: "6px 10px",
+                background: "#121212", border: "1px solid #2C2C2C",
+                borderRadius: 6, color: "#fff", fontSize: 12,
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={handleVoteSendCode}
+              disabled={voteLoading}
+              style={{
+                padding: "6px 12px", background: voteLoading ? "#555" : "#39FF14",
+                color: "#000", border: "none", borderRadius: 6,
+                fontSize: 10, fontWeight: 700, cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >{voteLoading ? "..." : "SEND CODE"}</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={8}
+              value={voteCode}
+              onChange={e => setVoteCode(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={e => e.key === "Enter" && handleVoteVerify(e)}
+              placeholder="8-digit code"
+              onClick={e => e.stopPropagation()}
+              autoFocus
+              style={{
+                flex: 1, padding: "6px 10px",
+                background: "#121212", border: "1px solid #2C2C2C",
+                borderRadius: 6, color: "#fff", fontSize: 14,
+                fontFamily: "monospace", letterSpacing: "0.15em",
+                outline: "none", textAlign: "center",
+              }}
+            />
+            <button
+              onClick={handleVoteVerify}
+              disabled={voteLoading}
+              style={{
+                padding: "6px 12px", background: voteLoading ? "#555" : "#39FF14",
+                color: "#000", border: "none", borderRadius: 6,
+                fontSize: 10, fontWeight: 700, cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >{voteLoading ? "..." : "VERIFY"}</button>
           </div>
         )}
+        {voteMsg && (
+          <div style={{
+            marginTop: 6, fontSize: 10,
+            color: voteMsg.includes("Check") ? "#39FF14" : "#FF4444",
+          }}>{voteMsg}</div>
+        )}
+        <div style={{
+          marginTop: 6, fontSize: 9, color: "rgba(255,255,255,0.2)",
+        }}>Sign in with your OGA account to vote</div>
       </div>
     );
   };
@@ -1007,7 +1012,10 @@ const TicketBoard = ({ tickets, tier, user }) => {
       <SectionHeader icon="🎮" title="User App" count={userAppTickets.length} />
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {userAppTickets.length > 0 ? userAppTickets.map(t => (
-          <TicketRow key={t.id} ticket={t} />
+          <div key={t.id}>
+            <TicketRow ticket={t} />
+            <VoteLoginInline ticketId={t.id} />
+          </div>
         )) : (
           <div style={{
             padding: "16px", textAlign: "center",
@@ -1020,7 +1028,10 @@ const TicketBoard = ({ tickets, tier, user }) => {
       <SectionHeader icon="🛠" title="Creator Portal" count={creatorTickets.length} />
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {creatorTickets.length > 0 ? creatorTickets.map(t => (
-          <TicketRow key={t.id} ticket={t} />
+          <div key={t.id}>
+            <TicketRow ticket={t} />
+            <VoteLoginInline ticketId={t.id} />
+          </div>
         )) : (
           <div style={{
             padding: "16px", textAlign: "center",
