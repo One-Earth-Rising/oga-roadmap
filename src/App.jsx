@@ -739,11 +739,19 @@ const TicketBoard = ({ tickets, tier, user }) => {
     }
     if (!ticket.dbId || votedIds.has(ticket.id)) return;
     console.log("Voting for ticket:", ticket.dbId, ticket.id);
-    // Optimistic update — vote is recorded even if RPC response format varies
+    // Optimistic update
+    const newCount = (localVotes[ticket.id] || ticket.votes) + 1;
     setVotedIds(prev => new Set([...prev, ticket.id]));
-    setLocalVotes(prev => ({ ...prev, [ticket.id]: (prev[ticket.id] || ticket.votes) + 1 }));
-    // Fire and forget — the DB write works, response parsing is unreliable
+    setLocalVotes(prev => ({ ...prev, [ticket.id]: newCount }));
+    // Fire vote to Supabase
     rpc("vote_ticket", { p_ticket_id: ticket.dbId });
+    // Sync vote range tag to Teamwork
+    const twId = ticket.id.replace("TW-", "");
+    fetch("https://oer.app.n8n.cloud/webhook/vote-sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamwork_id: twId, vote_count: newCount }),
+    }).then(r => r.text()).then(t => console.log("Vote sync:", t)).catch(e => console.error("Vote sync error:", e));
   };
 
   const handleVoteSendCode = async (e) => {
