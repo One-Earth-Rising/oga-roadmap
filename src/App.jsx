@@ -751,7 +751,7 @@ const TicketBoard = ({ tickets, tier, user }) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teamwork_id: twId, vote_count: newCount }),
-    }).then(r => r.text()).then(t => console.log("Vote sync:", t)).catch(e => console.error("Vote sync error:", e));
+    }).catch(() => { });
   };
 
   const handleVoteSendCode = async (e) => {
@@ -1077,6 +1077,7 @@ export default function OGARoadmap() {
   const [phases, setPhases] = useState(FALLBACK_PHASES);
   const [tickets, setTickets] = useState(FALLBACK_TICKETS);
   const [dataSource, setDataSource] = useState("local");
+  const [currentSprint, setCurrentSprint] = useState(45);
   const [user, setUser] = useState(null); // Supabase auth user
   const [accessStatus, setAccessStatus] = useState(null); // pending, approved, denied, revoked, none
 
@@ -1093,6 +1094,11 @@ export default function OGARoadmap() {
     });
     if (ticketRows && ticketRows.length > 0) {
       setTickets(buildTicketsFromDB(ticketRows));
+    }
+    // Get current sprint number
+    const sprintRows = await rpc("get_current_sprint");
+    if (sprintRows && sprintRows.sprint_number) {
+      setCurrentSprint(sprintRows.sprint_number);
     }
   }, []);
 
@@ -1225,6 +1231,9 @@ export default function OGARoadmap() {
           .rm-ticket-votes { min-width: 22px !important; }
           .rm-ticket-votes span:last-child { font-size: 11px !important; }
           .rm-how-it-works { padding: 12px 14px !important; font-size: 11px !important; }
+          .rm-quarters { grid-template-columns: 1fr !important; }
+          .rm-quarter-card { padding: 12px !important; }
+          .rm-hero { padding: 20px 12px 14px !important; }
           .rm-access-modal { padding: 20px 16px !important; max-width: 340px !important; }
         }
         @media (max-width: 380px) {
@@ -1322,6 +1331,48 @@ export default function OGARoadmap() {
         </div>
       </header>
 
+      {/* HERO — above timeline */}
+      {activeTab === "roadmap" && (
+        <div className="rm-hero" style={{
+          textAlign: "center", padding: "28px 24px 20px",
+          background: "#000",
+        }}>
+          <h1 className="rm-hero-title" style={{
+            fontSize: "clamp(24px, 4vw, 40px)",
+            fontWeight: 900, letterSpacing: "0.05em",
+            margin: 0, lineHeight: 1.15, textTransform: "uppercase",
+          }}>
+            BUILDING THE <span style={{ color: "#39FF14" }}>OGA ECOSYSTEM</span>
+          </h1>
+          <p className="rm-hero-desc" style={{
+            fontSize: 13, color: "rgba(255,255,255,0.35)",
+            maxWidth: 440, margin: "10px auto 0", lineHeight: 1.6,
+          }}>
+            One Character. Infinite Worlds. Track our progress from platform
+            foundation to Gamescom 2026.
+          </p>
+          <div className="rm-hero-stats" style={{
+            display: "flex", justifyContent: "center", gap: 28, marginTop: 16,
+          }}>
+            {[
+              { v: `${doneM}/${totalM}`, l: "MILESTONES" },
+              { v: String(currentSprint), l: "SPRINT" },
+              { v: "GRANTED", l: "U.S. PATENT", green: true },
+            ].map((s, i) => (
+              <div key={i} style={{ textAlign: "center" }}>
+                <div className="rm-hero-stat-val" style={{
+                  fontSize: 20, fontWeight: 900, color: s.green ? "#39FF14" : "#fff",
+                }}>{s.v}</div>
+                <div style={{
+                  fontSize: 8, color: "rgba(255,255,255,0.25)",
+                  letterSpacing: "0.12em",
+                }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* TIMELINE */}
       <Timeline
         phases={phases}
@@ -1334,42 +1385,6 @@ export default function OGARoadmap() {
       <main className="rm-main" style={{ maxWidth: 740, margin: "0 auto", padding: "24px 24px 64px" }}>
         {activeTab === "roadmap" && (
           <div>
-            <div style={{ textAlign: "center", marginBottom: 28 }}>
-              <h1 style={{
-                fontSize: "clamp(24px, 4vw, 40px)",
-                fontWeight: 900, letterSpacing: "0.05em",
-                margin: 0, lineHeight: 1.15, textTransform: "uppercase",
-              }}>
-                BUILDING THE <span style={{ color: "#39FF14" }}>OGA ECOSYSTEM</span>
-              </h1>
-              <p style={{
-                fontSize: 13, color: "rgba(255,255,255,0.35)",
-                maxWidth: 440, margin: "10px auto 0", lineHeight: 1.6,
-              }}>
-                One Character. Infinite Worlds. Track our progress from platform
-                foundation to Gamescom 2026.
-              </p>
-              <div style={{
-                display: "flex", justifyContent: "center", gap: 28, marginTop: 16,
-              }}>
-                {[
-                  { v: `${doneM}/${totalM}`, l: "MILESTONES" },
-                  { v: "44", l: "SPRINT" },
-                  { v: "GRANTED", l: "U.S. PATENT", green: true },
-                ].map((s, i) => (
-                  <div key={i} style={{ textAlign: "center" }}>
-                    <div style={{
-                      fontSize: 20, fontWeight: 900, color: s.green ? "#39FF14" : "#fff",
-                    }}>{s.v}</div>
-                    <div style={{
-                      fontSize: 8, color: "rgba(255,255,255,0.25)",
-                      letterSpacing: "0.12em",
-                    }}>{s.l}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {phases.map((phase) => (
                 <div key={phase.id} id={`phase-${phase.id}`}>
@@ -1383,6 +1398,91 @@ export default function OGARoadmap() {
               ))}
             </div>
 
+            {/* QUARTERLY ACHIEVEMENTS */}
+            <div style={{ marginTop: 32 }}>
+              <h3 className="rm-section-title" style={{
+                fontSize: 14, fontWeight: 700, letterSpacing: "0.1em",
+                color: "rgba(255,255,255,0.4)", textTransform: "uppercase",
+                marginBottom: 16,
+              }}>QUARTERLY PROGRESS</h3>
+              <div className="rm-quarters" style={{
+                display: "grid", gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+              }}>
+                {[
+                  {
+                    q: "Q4 2025", months: "Oct — Dec", phases: ["foundation"],
+                    color: "#39FF14", desc: "Platform foundation laid"
+                  },
+                  {
+                    q: "Q1 2026", months: "Jan — Mar", phases: ["social", "creator", "beta"],
+                    color: "#39FF14", desc: "Social features, creator tools, beta hardening"
+                  },
+                  {
+                    q: "Q2 2026", months: "Apr — Jun", phases: ["partners"],
+                    color: "#FFA500", desc: "Partner integrations & game studios"
+                  },
+                  {
+                    q: "Q3 2026", months: "Jul — Sep", phases: ["gamescom"],
+                    color: "#4488FF", desc: "Gamescom activation & public launch"
+                  },
+                ].map((qtr, i) => {
+                  const qPhases = phases.filter(p => qtr.phases.includes(p.id));
+                  const qMilestones = qPhases.flatMap(p =>
+                    p.milestones.filter(m => canSee(m.vis, tier))
+                  );
+                  const qDone = qMilestones.filter(m => m.done).length;
+                  const qTotal = qMilestones.length;
+                  const pct = qTotal > 0 ? Math.round((qDone / qTotal) * 100) : 0;
+                  const isFuture = qDone === 0 && qTotal > 0;
+                  const isComplete = qTotal > 0 && qDone === qTotal;
+
+                  return (
+                    <div key={i} className="rm-quarter-card" style={{
+                      background: "#121212", border: "1px solid #2C2C2C",
+                      borderRadius: 12, padding: "16px",
+                      opacity: isFuture ? 0.5 : 1,
+                      transition: "opacity 0.3s ease",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{
+                            fontSize: 16, fontWeight: 900, color: isComplete ? "#39FF14" : "#fff",
+                          }}>{qtr.q}</div>
+                          <div style={{
+                            fontSize: 9, color: "rgba(255,255,255,0.25)",
+                            letterSpacing: "0.06em", marginTop: 2,
+                          }}>{qtr.months}</div>
+                        </div>
+                        <div style={{
+                          fontSize: 18, fontWeight: 900,
+                          color: isComplete ? "#39FF14" : isFuture ? "rgba(255,255,255,0.15)" : qtr.color,
+                        }}>{pct}%</div>
+                      </div>
+                      <div style={{
+                        marginTop: 10, height: 3, background: "#2C2C2C",
+                        borderRadius: 2, overflow: "hidden",
+                      }}>
+                        <div style={{
+                          height: "100%", borderRadius: 2,
+                          background: isComplete ? "rgba(57,255,20,0.3)" : qtr.color,
+                          width: `${pct}%`, transition: "width 1s ease",
+                        }} />
+                      </div>
+                      <div style={{
+                        marginTop: 8, fontSize: 10,
+                        color: "rgba(255,255,255,0.3)", lineHeight: 1.4,
+                      }}>{qtr.desc}</div>
+                      <div style={{
+                        marginTop: 4, fontSize: 9,
+                        color: "rgba(255,255,255,0.15)",
+                      }}>{qDone}/{qTotal} milestones</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div style={{
               textAlign: "center", padding: "28px 0 0",
               fontSize: 11, color: "rgba(255,255,255,0.18)", lineHeight: 1.6,
@@ -1391,7 +1491,7 @@ export default function OGARoadmap() {
               partner timelines and beta feedback.
               <br />
               <span style={{ color: "rgba(57,255,20,0.3)" }}>
-                Last updated: Sprint 44 — March 29, 2026
+                Last updated: Sprint {currentSprint} — March 30, 2026
               </span>
             </div>
           </div>
