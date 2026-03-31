@@ -52,6 +52,7 @@ function buildTicketsFromDB(rows) {
     .filter(t => t.category !== "bug") // No bugs on roadmap
     .map(t => ({
       id: `TW-${t.teamwork_ticket_id}`,
+      dbId: t.id,
       title: cleanTicketTitle(t.title),
       fullTitle: t.title, // Keep original for expand view
       status: t.status,
@@ -716,7 +717,64 @@ const PhaseCard = ({ phase, isExpanded, onToggle, tier }) => {
 };
 
 // ─── TICKET BOARD ───────────────────────────────────────────────
-const TicketBoard = ({ tickets, tier }) => {
+const TicketBoard = ({ tickets, tier, user }) => {
+  const [votedIds, setVotedIds] = useState(new Set());
+  const [localVotes, setLocalVotes] = useState({});
+  const [voteLoginId, setVoteLoginId] = useState(null);
+  const [voteEmail, setVoteEmail] = useState("");
+  const [voteCode, setVoteCode] = useState("");
+  const [voteStep, setVoteStep] = useState("email");
+  const [voteLoading, setVoteLoading] = useState(false);
+  const [voteMsg, setVoteMsg] = useState(null);
+
+  const handleVote = async (ticket, e) => {
+    e.stopPropagation();
+    if (!user) {
+      setVoteLoginId(voteLoginId === ticket.id ? null : ticket.id);
+      setVoteStep("email");
+      setVoteMsg(null);
+      setVoteEmail("");
+      setVoteCode("");
+      return;
+    }
+    if (!ticket.dbId || votedIds.has(ticket.id)) return;
+    const result = await rpc("vote_ticket", { p_ticket_id: ticket.dbId });
+    if (result && result.status === "voted") {
+      setVotedIds(prev => new Set([...prev, ticket.id]));
+      setLocalVotes(prev => ({ ...prev, [ticket.id]: (prev[ticket.id] || ticket.votes) + 1 }));
+    } else if (result && result.status === "already_voted") {
+      setVotedIds(prev => new Set([...prev, ticket.id]));
+    }
+  };
+
+  const handleVoteSendCode = async (e) => {
+    e.stopPropagation();
+    if (!voteEmail.trim()) return;
+    setVoteLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({ email: voteEmail.trim() });
+    setVoteLoading(false);
+    if (error) {
+      setVoteMsg("Could not send code. Try again.");
+    } else {
+      setVoteStep("code");
+      setVoteMsg("Check your email for the 8-digit code.");
+    }
+  };
+
+  const handleVoteVerify = async (e) => {
+    e.stopPropagation();
+    if (!voteCode.trim() || voteCode.length < 8) return;
+    setVoteLoading(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email: voteEmail.trim(), token: voteCode.trim(), type: "email",
+    });
+    setVoteLoading(false);
+    if (error) {
+      setVoteMsg("Invalid or expired code.");
+      setVoteCode("");
+    }
+  };
+
   const [filter, setFilter] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
   const statusOrder = ["in_production", "in_review", "backlog", "published"];
@@ -792,9 +850,27 @@ const TicketBoard = ({ tickets, tier }) => {
               <VisIndicator vis={ticket.vis} />
             </div>
           </div>
-          <div className="rm-ticket-votes" style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 28 }}>
-            <span style={{ fontSize: 10, color: "rgba(57,255,20,0.45)" }}>▲</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.45)" }}>{ticket.votes}</span>
+          <div
+            className="rm-ticket-votes"
+            onClick={(e) => handleVote(ticket, e)}
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", minWidth: 28,
+              cursor: user ? "pointer" : "default",
+              opacity: votedIds.has(ticket.id) ? 1 : 0.6,
+              transition: "opacity 0.2s ease",
+            }}
+            title={user ? (votedIds.has(ticket.id) ? "You voted!" : "Vote for this feature") : "Sign in to vote"}
+          >
+            <span style={{
+              fontSize: 10,
+              color: votedIds.has(ticket.id) ? "#39FF14" : "rgba(57,255,20,0.45)",
+              transition: "color 0.2s ease",
+            }}>▲</span>
+            <span style={{
+              fontSize: 13, fontWeight: 700,
+              color: votedIds.has(ticket.id) ? "#39FF14" : "rgba(255,255,255,0.45)",
+              transition: "color 0.2s ease",
+            }}>{localVotes[ticket.id] ?? ticket.votes}</span>
           </div>
           <span className="rm-ticket-status" style={{
             background: cfg.bg, color: cfg.color,
@@ -803,6 +879,83 @@ const TicketBoard = ({ tickets, tier }) => {
             whiteSpace: "nowrap", flexShrink: 0,
           }}>{cfg.label}</span>
         </div>
+
+        {/* Inline vote login */}
+        {!user && voteLoginId === ticket.id && (
+          <div className="rm-vote-login" onClick={e => e.stopPropagation()} style={{
+            marginTop: 10, padding: "10px 12px",
+            background: "#0A0A0A", border: "1px solid #2C2C2C",
+            borderRadius: 8,
+          }}>
+            {voteStep === "email" ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  type="email"
+                  value={voteEmail}
+                  onChange={e => setVoteEmail(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleVoteSendCode(e)}
+                  placeholder="Your OGA email"
+                  onClick={e => e.stopPropagation()}
+                  style={{
+                    flex: 1, padding: "6px 10px",
+                    background: "#121212", border: "1px solid #2C2C2C",
+                    borderRadius: 6, color: "#fff", fontSize: 12,
+                    outline: "none",
+                  }}
+                />
+                <button
+                  onClick={handleVoteSendCode}
+                  disabled={voteLoading}
+                  style={{
+                    padding: "6px 12px", background: voteLoading ? "#555" : "#39FF14",
+                    color: "#000", border: "none", borderRadius: 6,
+                    fontSize: 10, fontWeight: 700, cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >{voteLoading ? "..." : "SEND CODE"}</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={voteCode}
+                  onChange={e => setVoteCode(e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={e => e.key === "Enter" && handleVoteVerify(e)}
+                  placeholder="8-digit code"
+                  onClick={e => e.stopPropagation()}
+                  style={{
+                    flex: 1, padding: "6px 10px",
+                    background: "#121212", border: "1px solid #2C2C2C",
+                    borderRadius: 6, color: "#fff", fontSize: 14,
+                    fontFamily: "monospace", letterSpacing: "0.15em",
+                    outline: "none", textAlign: "center",
+                  }}
+                />
+                <button
+                  onClick={handleVoteVerify}
+                  disabled={voteLoading}
+                  style={{
+                    padding: "6px 12px", background: voteLoading ? "#555" : "#39FF14",
+                    color: "#000", border: "none", borderRadius: 6,
+                    fontSize: 10, fontWeight: 700, cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >{voteLoading ? "..." : "VERIFY"}</button>
+              </div>
+            )}
+            {voteMsg && (
+              <div style={{
+                marginTop: 6, fontSize: 10,
+                color: voteMsg.includes("Check") ? "#39FF14" : "#FF4444",
+              }}>{voteMsg}</div>
+            )}
+            <div style={{
+              marginTop: 6, fontSize: 9, color: "rgba(255,255,255,0.2)",
+            }}>Sign in with your OGA account to vote</div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1029,6 +1182,9 @@ export default function OGARoadmap() {
           .rm-header-tab { padding: 5px 8px !important; font-size: 9px !important; }
           .rm-header-lock span { display: none !important; }
           .rm-header-lock { padding: 5px 8px !important; margin-left: 0 !important; }
+          .rm-header-user { max-width: 100px !important; font-size: 8px !important; }
+          .rm-vote-login { padding: 8px !important; }
+          .rm-vote-login input { font-size: 12px !important; }
           .rm-timeline { padding: 12px 0 10px !important; }
           .rm-timeline-bar { margin: 0 12px 10px !important; }
           .rm-timeline-nodes { padding: 4px 8px 0 !important; }
@@ -1058,6 +1214,7 @@ export default function OGARoadmap() {
           .rm-tl-title { font-size: 6px !important; }
           .rm-phase-num { font-size: 24px !important; min-width: 30px !important; }
           .rm-phase-title { font-size: 12px !important; }
+          .rm-header-user { display: none !important; }
         }
       `}</style>
 
@@ -1097,6 +1254,26 @@ export default function OGARoadmap() {
               cursor: "pointer",
             }}>{tab.label}</button>
           ))}
+          {user && (
+            <div className="rm-header-user" style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "3px 8px", borderRadius: 6,
+              background: "rgba(57,255,20,0.06)",
+              border: "1px solid rgba(57,255,20,0.1)",
+              maxWidth: 140, overflow: "hidden",
+            }}>
+              <div style={{
+                width: 16, height: 16, borderRadius: "50%",
+                background: "rgba(57,255,20,0.2)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 8, color: "#39FF14", fontWeight: 700, flexShrink: 0,
+              }}>{(user.email || "?")[0].toUpperCase()}</div>
+              <span style={{
+                fontSize: 9, color: "rgba(255,255,255,0.4)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>{user.email}</span>
+            </div>
+          )}
           <button
             className="rm-header-lock"
             onClick={handleLockClick}
@@ -1217,7 +1394,7 @@ export default function OGARoadmap() {
                 Approved beta feedback — live status from our sprint pipeline
               </p>
             </div>
-            <TicketBoard tickets={tickets} tier={tier} />
+            <TicketBoard tickets={tickets} tier={tier} user={user} />
           </div>
         )}
       </main>
