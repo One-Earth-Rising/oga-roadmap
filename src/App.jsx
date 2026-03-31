@@ -738,7 +738,9 @@ const TicketBoard = ({ tickets, tier, user }) => {
       return;
     }
     if (!ticket.dbId || votedIds.has(ticket.id)) return;
+    console.log("Voting for ticket:", ticket.dbId, ticket.id);
     const result = await rpc("vote_ticket", { p_ticket_id: ticket.dbId });
+    console.log("Vote result:", result);
     if (result && result.status === "voted") {
       setVotedIds(prev => new Set([...prev, ticket.id]));
       setLocalVotes(prev => ({ ...prev, [ticket.id]: (prev[ticket.id] || ticket.votes) + 1 }));
