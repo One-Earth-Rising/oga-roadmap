@@ -576,7 +576,7 @@ export default function OGARoadmap() {
   }, [checkAccess, fetchLiveData]);
 
   const handleLockClick = async () => {
-    if (user && tier !== "public") {
+    if (user) {
       await supabase.auth.signOut();
       setUser(null); setTier("public"); fetchLiveData("public");
     } else setShowAccessModal(true);
@@ -626,18 +626,18 @@ export default function OGARoadmap() {
               {!mob && <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</span>}
             </div>
           )}
-          <button onClick={handleLockClick} title={user && tier !== "public" ? "Sign out" : "Investor access"} style={{
-            background: tier === "investor" ? "rgba(255,165,0,0.1)" : tier === "internal" ? "rgba(139,92,246,0.1)" : "transparent",
-            border: tier !== "public" ? `1px solid ${ACCESS_TIERS[tier]?.color || "#FFA500"}40` : "1px solid transparent",
-            color: tier !== "public" ? (ACCESS_TIERS[tier]?.color || "#FFA500") : "rgba(255,255,255,0.2)",
+          <button onClick={handleLockClick} title={user ? `Signed in as ${user.email} — click to sign out` : "Investor access"} style={{
+            background: tier === "investor" ? "rgba(255,165,0,0.1)" : tier === "internal" ? "rgba(139,92,246,0.1)" : user ? "rgba(57,255,20,0.06)" : "transparent",
+            border: tier !== "public" ? `1px solid ${ACCESS_TIERS[tier]?.color || "#FFA500"}40` : user ? "1px solid rgba(57,255,20,0.15)" : "1px solid transparent",
+            color: tier !== "public" ? (ACCESS_TIERS[tier]?.color || "#FFA500") : user ? "rgba(57,255,20,0.6)" : "rgba(255,255,255,0.2)",
             padding: "5px 10px", borderRadius: 6, cursor: "pointer",
             display: "flex", alignItems: "center", gap: 5,
           }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="8" width="10" height="7" rx="1.5" />
-              {tier !== "public" ? <path d="M5 8V5a3 3 0 0 1 6 0" /> : <path d="M5 8V5a3 3 0 0 1 6 0V8" />}
+              {user ? <path d="M5 8V5a3 3 0 0 1 6 0" /> : <path d="M5 8V5a3 3 0 0 1 6 0V8" />}
             </svg>
-            {tier !== "public" && !mob && <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em" }}>{ACCESS_TIERS[tier]?.label}</span>}
+            {user && !mob && <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em" }}>{tier !== "public" ? ACCESS_TIERS[tier]?.label : "SIGN OUT"}</span>}
           </button>
         </div>
       </header>
@@ -666,22 +666,37 @@ export default function OGARoadmap() {
 
       {/* ── TIMELINE DOTS ── */}
       <div style={{ padding: `0 ${px}px 6px`, marginTop: 8 }}>
-        <div style={{ position: "relative", display: "flex", alignItems: "center", paddingTop: 28 }}>
-          <div style={{ position: "absolute", top: 28, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.05)" }} />
-          <div style={{ position: "absolute", top: 28, left: 0, width: `${timelineProg}%`, height: 2, background: "#39FF14", transition: "width .5s ease" }} />
+        {/* Dot row — line runs through center of dots */}
+        <div style={{ position: "relative", display: "flex", alignItems: "center", height: 12 }}>
+          {/* Base line — centered vertically in the 12px row */}
+          <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.05)", transform: "translateY(-50%)" }} />
+          {/* Green progress line */}
+          <div style={{ position: "absolute", top: "50%", left: 0, width: `${timelineProg}%`, height: 2, background: "#39FF14", transform: "translateY(-50%)", transition: "width .5s ease" }} />
           {quartersWithStatus.map((q, i) => {
             const on = i <= curIdx;
             const here = q.status === "current";
             return (
-              <div key={q.id} onClick={() => go(i)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative", cursor: "pointer", zIndex: 1 }}>
+              <div key={q.id} onClick={() => go(i)} style={{ flex: 1, display: "flex", justifyContent: "center", position: "relative", cursor: "pointer", zIndex: 1 }}>
+                {/* "YOU ARE HERE" floats above */}
                 {here && (
-                  <div style={{ position: "absolute", top: -24, display: "flex", flexDirection: "column", alignItems: "center", animation: "yah 2s ease-in-out infinite", pointerEvents: "none" }}>
+                  <div style={{ position: "absolute", bottom: "100%", marginBottom: 6, display: "flex", flexDirection: "column", alignItems: "center", animation: "yah 2s ease-in-out infinite", pointerEvents: "none" }}>
                     <span style={{ fontSize: mob ? 6 : 7, fontWeight: 800, letterSpacing: "0.12em", color: "#39FF14", whiteSpace: "nowrap" }}>YOU ARE HERE</span>
                     <svg width="8" height="4" viewBox="0 0 8 4" style={{ marginTop: 2 }}><path d="M0 0L4 4L8 0" fill="#39FF14" /></svg>
                   </div>
                 )}
+                {/* Dot — naturally centered in the flex row, line passes through it */}
                 <div style={{ width: here ? 10 : 7, height: here ? 10 : 7, borderRadius: "50%", background: on ? "#39FF14" : "rgba(255,255,255,0.1)", boxShadow: here ? "0 0 8px rgba(57,255,20,0.5)" : "none", transition: "all .3s ease" }} />
-                <span style={{ marginTop: 6, fontSize: mob ? 7 : 8, fontWeight: 600, letterSpacing: "0.03em", whiteSpace: "nowrap", color: on ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.18)" }}>{q.label} {q.year}</span>
+              </div>
+            );
+          })}
+        </div>
+        {/* Labels row — separate from dots so alignment isn't affected */}
+        <div style={{ display: "flex", marginTop: 6 }}>
+          {quartersWithStatus.map((q, i) => {
+            const on = i <= curIdx;
+            return (
+              <div key={q.id} onClick={() => go(i)} style={{ flex: 1, textAlign: "center", cursor: "pointer" }}>
+                <span style={{ fontSize: mob ? 7 : 8, fontWeight: 600, letterSpacing: "0.03em", color: on ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.18)" }}>{q.label} {q.year}</span>
               </div>
             );
           })}
