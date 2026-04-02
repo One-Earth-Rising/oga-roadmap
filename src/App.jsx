@@ -20,29 +20,21 @@ function getCurrentQuarterId() {
   return `Q${q}-${d.getFullYear()}`;
 }
 
-function cleanTicketTitle(raw) {
-  return (raw || "Untitled")
-    .replace(/^\[User App\]\s*/i, "")
-    .replace(/^\[Creator Portal\]\s*/i, "")
-    .replace(/^(BUG|FEATURE|UX):\s*/i, "")
-    .trim();
-}
+// cleanTicketTitle removed — community tasks use public_label or title directly
 
-function buildTicketsFromDB(rows) {
-  return rows
-    .filter(t => t.category !== "bug")
-    .map(t => ({
-      id: `TW-${t.teamwork_ticket_id}`,
-      dbId: t.id,
-      title: cleanTicketTitle(t.title),
-      status: t.status,
-      priority: t.priority || "medium",
-      votes: t.vote_count || 0,
-      date: new Date(t.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      category: t.category === "ux" ? "ux/ui" : (t.category || "other"),
-      source: t.source || "user_app",
-      vis: t.visibility || "public",
-    }));
+function buildCommunityTasks(rows) {
+  return rows.map(t => ({
+    id: t.teamwork_task_id ? `TW-${t.teamwork_task_id}` : t.id,
+    dbId: t.id,
+    title: t.title,
+    status: t.status === "complete" ? "published" : t.status === "in_progress" ? "in_production" : t.status === "in_review" ? "in_review" : "backlog",
+    priority: t.priority || "medium",
+    votes: t.vote_count || 0,
+    date: new Date(t.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    category: t.category || "feature",
+    source: t.source || "user_app",
+    vis: t.visibility || "internal",
+  }));
 }
 
 // ─── TICKET STATUSES ────────────────────────────────────────────
@@ -121,14 +113,14 @@ const FALLBACK_QUARTERS = [
 ];
 
 const FALLBACK_TICKETS = [
-  { id: "TW-136", title: "Add counter-offer option to trade proposals", status: "in_review", priority: "medium", votes: 7, date: "Mar 25", category: "feature", source: "user_app", vis: "public" },
-  { id: "TW-131", title: "Native camera for QR scan on mobile", status: "backlog", priority: "low", votes: 5, date: "Mar 23", category: "feature", source: "user_app", vis: "public" },
-  { id: "TW-125", title: "Dark mode toggle in settings", status: "backlog", priority: "low", votes: 8, date: "Mar 21", category: "feature", source: "user_app", vis: "public" },
-  { id: "TW-120", title: "Character comparison view side-by-side", status: "in_review", priority: "medium", votes: 4, date: "Mar 19", category: "ux/ui", source: "user_app", vis: "public" },
-  { id: "TW-133", title: "Reorder portal pass sections with drag-and-drop", status: "backlog", priority: "medium", votes: 3, date: "Mar 24", category: "feature", source: "creator_portal", vis: "public" },
-  { id: "TW-129", title: "Bulk character import from CSV", status: "in_production", priority: "high", votes: 6, date: "Mar 22", category: "feature", source: "creator_portal", vis: "public" },
-  { id: "TW-126", title: "Preview portal pass as end user", status: "in_review", priority: "medium", votes: 4, date: "Mar 21", category: "ux/ui", source: "creator_portal", vis: "public" },
-  { id: "TW-148", title: "Ed demo environment: hide blockchain references", status: "in_production", priority: "high", votes: 0, date: "Mar 29", category: "feature", source: "creator_portal", vis: "internal" },
+  { id: "ft-1", title: "Trade Counteroffers — Negotiate Trades", status: "backlog", priority: "medium", votes: 14, date: "Mar 25", category: "feature", source: "user_app", vis: "public" },
+  { id: "ft-2", title: "Native Camera for QR Scanning", status: "backlog", priority: "medium", votes: 8, date: "Mar 23", category: "ux/ui", source: "user_app", vis: "public" },
+  { id: "ft-3", title: "Scoped Invite Tokens with Expiry", status: "backlog", priority: "medium", votes: 22, date: "Mar 21", category: "feature", source: "user_app", vis: "public" },
+  { id: "ft-4", title: "Enhanced Friend Activity Feed", status: "backlog", priority: "medium", votes: 11, date: "Mar 19", category: "ux/ui", source: "user_app", vis: "public" },
+  { id: "ft-5", title: "Cross-Game Character Connections", status: "backlog", priority: "medium", votes: 31, date: "Mar 22", category: "feature", source: "user_app", vis: "public" },
+  { id: "ft-6", title: "OGA Marketplace — Browse & Acquire", status: "backlog", priority: "low", votes: 27, date: "Mar 22", category: "feature", source: "user_app", vis: "public" },
+  { id: "ft-7", title: "Creator Analytics Dashboard", status: "backlog", priority: "medium", votes: 15, date: "Mar 24", category: "feature", source: "creator_portal", vis: "public" },
+  { id: "ft-8", title: "Game Variation Bulk Upload", status: "backlog", priority: "medium", votes: 4, date: "Mar 22", category: "ux/ui", source: "creator_portal", vis: "public" },
 ];
 
 // ─── SMALL COMPONENTS ───────────────────────────────────────────
@@ -362,12 +354,15 @@ const CommunityVoting = ({ tickets, tier, user, mobile }) => {
     const newCount = (localVotes[ticket.id] || ticket.votes) + 1;
     setVotedIds(prev => new Set([...prev, ticket.id]));
     setLocalVotes(prev => ({ ...prev, [ticket.id]: newCount }));
-    rpc("vote_ticket", { p_ticket_id: ticket.dbId });
-    const twId = ticket.id.replace("TW-", "");
-    fetch("https://oer.app.n8n.cloud/webhook/vote-sync", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teamwork_id: twId, vote_count: newCount }),
-    }).catch(() => { });
+    rpc("vote_community_task", { p_task_id: ticket.dbId });
+    // Sync to Teamwork if this task has a TW ID
+    if (ticket.id.startsWith("TW-")) {
+      const twId = ticket.id.replace("TW-", "");
+      fetch("https://oer.app.n8n.cloud/webhook/vote-sync", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamwork_id: twId, vote_count: newCount }),
+      }).catch(() => {});
+    }
   };
 
   const handleVoteSendCode = async (e) => {
@@ -543,14 +538,18 @@ export default function OGARoadmap() {
 
   // ── Supabase data fetching ──
   const fetchLiveData = useCallback(async (visTier) => {
-    const ticketRows = await rpc("get_public_tickets", { p_visibility: visTier, p_status: null, p_limit: 50 });
-    if (ticketRows && ticketRows.length > 0) setTickets(buildTicketsFromDB(ticketRows));
+    // Fetch quarter data for carousel
+    const quarterData = await rpc("get_roadmap_quarters", { p_visibility: visTier });
+    if (quarterData && Array.isArray(quarterData) && quarterData.length > 0) {
+      setQuarters(quarterData);
+      console.log(`Roadmap: loaded ${quarterData.length} quarters (${visTier} tier)`);
+    }
+    // Fetch community voice tasks
+    const communityRows = await rpc("get_community_tasks", { p_visibility: visTier });
+    if (communityRows && communityRows.length > 0) setTickets(buildCommunityTasks(communityRows));
+    // Fetch sprint number
     const sprintRows = await rpc("get_current_sprint");
     if (sprintRows && sprintRows.sprint_number) setCurrentSprint(sprintRows.sprint_number);
-    // TODO: Once sprint_tasks have target:Q* tags flowing through n8n,
-    // fetch them here and build quarters dynamically:
-    // const tasks = await rpc("get_roadmap_tasks", { p_visibility: visTier });
-    // if (tasks?.length) setQuarters(buildQuartersFromDB(tasks));
   }, []);
 
   const checkAccess = useCallback(async () => {
