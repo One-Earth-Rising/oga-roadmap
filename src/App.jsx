@@ -252,6 +252,7 @@ const AccessModal = ({ onClose }) => {
 
         {mode === "request" && (<>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 14, lineHeight: 1.5 }}>Request access to see partner details, strategic milestones, and confidential roadmap data.</div>
+          <div style={{ fontSize: 10, color: "rgba(255,165,0,0.5)", marginBottom: 10, lineHeight: 1.4 }}>Please use your professional email for faster verification.</div>
           <input ref={inputRef} value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name *" style={inputStyle} />
           <input value={firm} onChange={e => setFirm(e.target.value)} placeholder="Firm or company (optional)" style={inputStyle} />
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleRequest()} placeholder="Email address *" style={inputStyle} />
@@ -398,7 +399,7 @@ const CommunityVoting = ({ tickets, tier, user, mobile }) => {
       }}>
         {voteStep === "email" ? (
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <input type="email" value={voteEmail} onChange={e => setVoteEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleVoteSendCode(e)} placeholder="Your OGA email" onClick={e => e.stopPropagation()} autoFocus style={{ flex: 1, padding: "6px 10px", background: "#121212", border: "1px solid #2C2C2C", borderRadius: 6, color: "#fff", fontSize: 12, outline: "none" }} />
+            <input type="email" value={voteEmail} onChange={e => setVoteEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleVoteSendCode(e)} placeholder="Your existing OGA email" onClick={e => e.stopPropagation()} autoFocus style={{ flex: 1, padding: "6px 10px", background: "#121212", border: "1px solid #2C2C2C", borderRadius: 6, color: "#fff", fontSize: 12, outline: "none" }} />
             <button onClick={handleVoteSendCode} disabled={voteLoading} style={{ padding: "6px 12px", background: voteLoading ? "#555" : "#39FF14", color: "#000", border: "none", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>{voteLoading ? "..." : "SEND CODE"}</button>
           </div>
         ) : (
@@ -408,7 +409,7 @@ const CommunityVoting = ({ tickets, tier, user, mobile }) => {
           </div>
         )}
         {voteMsg && <div style={{ marginTop: 6, fontSize: 10, color: voteMsg.includes("Check") ? "#39FF14" : "#FF4444" }}>{voteMsg}</div>}
-        <div style={{ marginTop: 6, fontSize: 9, color: "rgba(255,255,255,0.2)" }}>Sign in with your OGA account to vote</div>
+        <div style={{ marginTop: 6, fontSize: 9, color: "rgba(255,255,255,0.2)" }}>Sign in with your existing OGA account email to vote</div>
       </div>
     );
   };
