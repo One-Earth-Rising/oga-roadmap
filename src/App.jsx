@@ -112,16 +112,7 @@ const FALLBACK_QUARTERS = [
   },
 ];
 
-const FALLBACK_TICKETS = [
-  { id: "ft-1", title: "Trade Counteroffers — Negotiate Trades", status: "backlog", priority: "medium", votes: 14, date: "Mar 25", category: "feature", source: "user_app", vis: "public" },
-  { id: "ft-2", title: "Native Camera for QR Scanning", status: "backlog", priority: "medium", votes: 8, date: "Mar 23", category: "ux/ui", source: "user_app", vis: "public" },
-  { id: "ft-3", title: "Scoped Invite Tokens with Expiry", status: "backlog", priority: "medium", votes: 22, date: "Mar 21", category: "feature", source: "user_app", vis: "public" },
-  { id: "ft-4", title: "Enhanced Friend Activity Feed", status: "backlog", priority: "medium", votes: 11, date: "Mar 19", category: "ux/ui", source: "user_app", vis: "public" },
-  { id: "ft-5", title: "Cross-Game Character Connections", status: "backlog", priority: "medium", votes: 31, date: "Mar 22", category: "feature", source: "user_app", vis: "public" },
-  { id: "ft-6", title: "OGA Marketplace — Browse & Acquire", status: "backlog", priority: "low", votes: 27, date: "Mar 22", category: "feature", source: "user_app", vis: "public" },
-  { id: "ft-7", title: "Creator Analytics Dashboard", status: "backlog", priority: "medium", votes: 15, date: "Mar 24", category: "feature", source: "creator_portal", vis: "public" },
-  { id: "ft-8", title: "Game Variation Bulk Upload", status: "backlog", priority: "medium", votes: 4, date: "Mar 22", category: "ux/ui", source: "creator_portal", vis: "public" },
-];
+const FALLBACK_TICKETS = [];
 
 // ─── SMALL COMPONENTS ───────────────────────────────────────────
 
