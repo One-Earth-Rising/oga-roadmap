@@ -6,12 +6,17 @@ const OGA_LOGO = "https://jmbzrbteizvuqwukojzu.supabase.co/storage/v1/object/pub
 // ─── ACCESS TIER SYSTEM ──────────────────────────────────────────
 const ACCESS_TIERS = {
   public: { level: 0, label: "PUBLIC", color: "#39FF14" },
+  partner: { level: 1, label: "PARTNER", color: "#4FC3F7" },
   investor: { level: 1, label: "INVESTOR", color: "#FFA500" },
-  internal: { level: 2, label: "INTERNAL", color: "#8B5CF6" },
+  internal: { level: 3, label: "INTERNAL", color: "#8B5CF6" },
 };
 
 function canSee(itemVis, currentTier) {
-  return (ACCESS_TIERS[currentTier]?.level ?? 0) >= (ACCESS_TIERS[itemVis]?.level ?? 0);
+  if (itemVis === "public") return true;
+  if (currentTier === "internal") return true;
+  if (itemVis === "partner" && currentTier === "partner") return true;
+  if (itemVis === "investor" && currentTier === "investor") return true;
+  return false;
 }
 
 function getCurrentQuarterId() {
@@ -162,7 +167,7 @@ function CatBadge({ cat }) {
 
 function VisIndicator({ vis }) {
   if (vis === "public") return null;
-  const c = vis === "investor" ? "#FFA500" : "#8B5CF6";
+  const c = vis === "partner" ? "#4FC3F7" : vis === "investor" ? "#FFA500" : "#8B5CF6";
   return <span title={`${vis} only`} style={{
     width: 6, height: 6, borderRadius: "50%", background: c, opacity: 0.6,
     flexShrink: 0, display: "inline-block",
@@ -353,7 +358,7 @@ const CommunityVoting = ({ tickets, tier, user, mobile }) => {
       fetch("https://oer.app.n8n.cloud/webhook/vote-sync", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamwork_id: twId, vote_count: newCount }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
   };
 
@@ -730,7 +735,8 @@ export default function OGARoadmap() {
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}><Check done={false} s={14} /><span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>Planned</span></div>
         <MilestoneBadge />
         {tier !== "public" && <>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}><VisIndicator vis="investor" /><span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>Investor</span></div>
+          {(tier === "partner" || tier === "internal") && <div style={{ display: "flex", alignItems: "center", gap: 4 }}><VisIndicator vis="partner" /><span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>Partner</span></div>}
+          {(tier === "investor" || tier === "internal") && <div style={{ display: "flex", alignItems: "center", gap: 4 }}><VisIndicator vis="investor" /><span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>Investor</span></div>}
           {tier === "internal" && <div style={{ display: "flex", alignItems: "center", gap: 4 }}><VisIndicator vis="internal" /><span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>Internal</span></div>}
         </>}
       </div>
