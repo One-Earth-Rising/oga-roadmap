@@ -648,7 +648,8 @@ export default function OGARoadmap() {
         </p>
         <div style={{ display: "flex", gap: 24, marginTop: 16 }}>
           {[
-            { v: `${doneCount}/${totalCount}`, l: "MILESTONES" },
+            { v: `${quartersWithStatus.flatMap(q => q.tasks.filter(t => canSee(t.vis, tier) && t.milestone && t.done)).length}/${quartersWithStatus.flatMap(q => q.tasks.filter(t => canSee(t.vis, tier) && t.milestone)).length}`, l: "MILESTONES" },
+            { v: `${doneCount}/${totalCount}`, l: "TASKS" },
             { v: String(currentSprint), l: "SPRINT" },
             { v: "GRANTED", l: "U.S. PATENT", green: true },
           ].map((s, i) => (
