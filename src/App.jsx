@@ -279,6 +279,8 @@ const AccessModal = ({ onClose }) => {
 // ─── QUARTER CARD ───────────────────────────────────────────────
 const CARD_W = 320;
 const GAP = 20;
+const COLLAPSE_THRESHOLD = 12;  // cards with > this many tasks collapse by default
+const COLLAPSED_VISIBLE = 10;   // show this many when collapsed (must be < threshold)
 
 function QuarterCard({ q, active, mobile, tier }) {
   const tasks = q.tasks.filter(t => canSee(t.vis, tier));
@@ -287,6 +289,21 @@ function QuarterCard({ q, active, mobile, tier }) {
   const total = tasks.length;
   const pct = total > 0 ? (done / total) * 100 : 0;
   const lbl = q.status === "completed" ? "COMPLETED" : cur ? "CURRENT" : "PLANNED";
+
+  // Collapse logic. Cards over the threshold start collapsed.
+  // Milestones are pinned to the top of the visible set — they're load-bearing
+  // for investor scanning and should never hide behind a "show more" click.
+  const shouldCollapse = total > COLLAPSE_THRESHOLD;
+  const [expanded, setExpanded] = useState(false);
+
+  const visibleTasks = (() => {
+    if (!shouldCollapse || expanded) return tasks;
+    const milestones = tasks.filter(t => t.milestone);
+    const nonMilestones = tasks.filter(t => !t.milestone);
+    const remainingSlots = Math.max(0, COLLAPSED_VISIBLE - milestones.length);
+    return [...milestones, ...nonMilestones.slice(0, remainingSlots)];
+  })();
+  const hiddenCount = tasks.length - visibleTasks.length;
 
   return (
     <div style={{
@@ -314,7 +331,7 @@ function QuarterCard({ q, active, mobile, tier }) {
           <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1, color: "rgba(57,255,20,0.35)", marginTop: 3, letterSpacing: "0.03em", fontFamily: "'Helvetica Neue',Arial,sans-serif" }}>{q.year}</span>
         </div>
         <div style={{ flex: 1, paddingRight: 14, display: "flex", flexDirection: "column", gap: 2 }}>
-          {tasks.map((t, i) => (
+          {visibleTasks.map((t, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 26 }}>
               <Check done={t.done} s={16} />
               <span style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.25, flex: 1, minWidth: 0, color: t.done ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.38)" }}>{t.name}</span>
@@ -322,6 +339,34 @@ function QuarterCard({ q, active, mobile, tier }) {
               <VisIndicator vis={t.vis} />
             </div>
           ))}
+          {shouldCollapse && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              style={{
+                marginTop: 6, padding: "6px 10px",
+                background: "rgba(57,255,20,0.04)",
+                border: "1px solid rgba(57,255,20,0.12)",
+                borderRadius: 6,
+                color: "#39FF14",
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
+                textTransform: "uppercase", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                transition: "background 0.2s ease, border-color 0.2s ease",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "rgba(57,255,20,0.08)";
+                e.currentTarget.style.borderColor = "rgba(57,255,20,0.2)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "rgba(57,255,20,0.04)";
+                e.currentTarget.style.borderColor = "rgba(57,255,20,0.12)";
+              }}
+            >
+              {expanded
+                ? <>SHOW LESS <span style={{ fontSize: 8 }}>▲</span></>
+                : <>SHOW {hiddenCount} MORE <span style={{ fontSize: 8 }}>▼</span></>}
+            </button>
+          )}
         </div>
       </div>
     </div>
