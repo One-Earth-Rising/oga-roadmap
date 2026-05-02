@@ -280,7 +280,7 @@ const AccessModal = ({ onClose }) => {
 const CARD_W = 320;
 const GAP = 20;
 const COLLAPSE_THRESHOLD = 12;  // cards with > this many tasks collapse by default
-const COLLAPSED_VISIBLE = 10;   // show this many when collapsed (must be < threshold)
+const COLLAPSED_VISIBLE = 8;   // show this many when collapsed (must be < threshold)
 
 function QuarterCard({ q, active, mobile, tier }) {
   const tasks = q.tasks.filter(t => canSee(t.vis, tier));
@@ -298,10 +298,14 @@ function QuarterCard({ q, active, mobile, tier }) {
 
   const visibleTasks = (() => {
     if (!shouldCollapse || expanded) return tasks;
+    // Hard cap at COLLAPSED_VISIBLE total. Milestones get priority for the
+    // visible slots but don't get to overflow the budget — otherwise cards
+    // with lots of milestones (like Q2) stay tall even when "collapsed".
     const milestones = tasks.filter(t => t.milestone);
     const nonMilestones = tasks.filter(t => !t.milestone);
-    const remainingSlots = Math.max(0, COLLAPSED_VISIBLE - milestones.length);
-    return [...milestones, ...nonMilestones.slice(0, remainingSlots)];
+    const visibleMilestones = milestones.slice(0, COLLAPSED_VISIBLE);
+    const remainingSlots = Math.max(0, COLLAPSED_VISIBLE - visibleMilestones.length);
+    return [...visibleMilestones, ...nonMilestones.slice(0, remainingSlots)];
   })();
   const hiddenCount = tasks.length - visibleTasks.length;
 
